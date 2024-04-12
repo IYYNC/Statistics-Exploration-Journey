@@ -1,0 +1,550 @@
+---
+title: "HW1 BAX400-01"
+author: "Ian Chen"
+date: "2023-08-17"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages('dplyr') 
+install.packages('ggplot2')
+install.packages('psych') 
+install.packages('tidyverse')
+```
+<font size="5">Question1 part a</font>
+```{r}
+#Import data
+dfq1 <- read.csv('Dow.csv')
+#Checking dataframe structure
+str(dfq1)
+#Losing the commas for closing.values to change into numeric type
+dfq1$Closing.Values = as.numeric(gsub("\\,", "", dfq1$Closing.Values))
+#Creating a time series for the closing price of Dow 
+tsdfq1 <- ts(dfq1$Closing.Values, frequency = 1, start =1) 
+#Examine the class of the object
+class(tsdfq1)
+#Computing the Growth Factor
+GF <- tsdfq1/stats::lag(tsdfq1,-1)
+#Calculate the Geometric mean using the geometric.mean function in the psych package
+library(psych)
+Geo_Mean_Dow <- 100*(geometric.mean(GF)-1)
+sprintf("Question 1 part a: The average Dow return over the period given is the geometric mean, which is a monthly %.1f%% return.",Geo_Mean_Dow)
+```
+<font size="5">Question1 part b</font>
+```{r}
+#Creating a return DataFrame with dates
+dates <- dfq1[-1,-2]
+Return <- round((GF-1)*100, digits=2)
+returndf <- data.frame(dates, Return)
+#Plotting Histogram
+library(ggplot2)
+ggplot(data=returndf, aes(Return))+
+  geom_histogram(binwidth = 0.5, col = "black", fill = "lightblue")+
+  ggtitle("Monthly Return on Dow") + labs(x = "Returns in %", y = "Frequencies")+
+  theme_grey()
+sprintf("Question 1 part b: The returns does not pass the normality test by looking at the shape of the distribution, it is slightly left skewed and peaked.")
+```
+<font size="5">Question1 part c</font>
+```{r}
+#Finding the standard deviation for the returns and checking whether the returns adhere to the Empirical Rule
+stddow <- sd(returndf$Return)
+SampleSizeDow <- length(returndf$Return)
+mean_return <- mean(returndf$Return)
+median_return <- median(returndf$Return)
+#Using median as the center because the distribution is slightly left skewed
+
+#One std bounds
+One_upper <- median_return + stddow
+One_lower <- median_return - stddow
+#Two std bounds
+Two_upper <- median_return + 2*stddow 
+Two_lower <- median_return - 2*stddow
+#Three std bounds
+Three_upper <- median_return + 3*stddow
+Three_lower <- median_return - 3*stddow
+#Counting the percentage between one SD
+Within_One_std <- length(which(returndf$Return >= One_lower & returndf$Return <= One_upper))
+Percent_Within_One_std <- 100*(Within_One_std/SampleSizeDow)
+#Counting the percentage between two SD
+Within_Two_std <- length(which(returndf$Return >= Two_lower & returndf$Return <= Two_upper))
+Percent_Within_Two_std <- 100*(Within_Two_std/SampleSizeDow)
+#Counting the percentage between three SD
+Within_Three_std <- length(which(returndf$Return >= Three_lower & returndf$Return <= Three_upper))
+Percent_Within_Three_std <- 100*(Within_Three_std/SampleSizeDow)
+
+sprintf("%.2f%% of the returns are within one SD from the median", Percent_Within_One_std)
+sprintf("%.2f%% of the returns are within two SDs from the median", Percent_Within_Two_std)
+sprintf("%.2f%% of the returns are within three SDs from the median", Percent_Within_Three_std)
+
+sprintf("Question1 part c: The ranges fall really close to the Empirical rule, which conlficts with the above result as shown in the plot, so we could not really say it passed the normality test, only lies very close to the rule.")
+```
+<font size="5">Question1 part d</font>
+```{r}
+#Plot boxplot
+boxplot(returndf$Return,horizontal = TRUE, col="skyblue3")
+#Getting the five numbers and IQR
+FN <- fivenum(returndf$Return)
+IQRreturn <- IQR(returndf$Return) 
+Min <- FN[1]
+Q1 <- FN[2]
+Q2 <- FN[3]
+Q3 <- FN[4]
+Max <- FN[5]
+sprintf("First Quartile: 25 percent of the returns are less than %.2f%% and 75 percent of them are more than %.2f%%.", Q1, Q1)
+sprintf("Second Quartile: 50 percent of the returns are less than %.2f%% and 50 percent of them are more than %.2f%%.", Q2, Q2)
+sprintf("Third Quartile: 75 percent of the returns are less than %.2f%% and 25 percent of them are more than %.2f%%.", Q3, Q3)
+```
+<font size="5">Question1 part e</font>
+```{r}
+#Obtaining the outliers
+outliers <- boxplot(returndf$Return,horizontal = TRUE, col = "skyblue3")$out
+#Setting the inner fence and outer fence
+mild_outlier_upper <- Q3 + 1.5*IQRreturn
+mild_outlier_lower <- Q1 - 1.5*IQRreturn
+extreme_outlier_upper <- Q3 + 3*IQRreturn
+extreme_outlier_lower <- Q1 - 3*IQRreturn
+#Testing for extreme and mild outliers
+mild_outliers <- outliers[which((outliers >= extreme_outlier_lower & outliers < mild_outlier_lower)|(outliers > mild_outlier_upper & outliers <= extreme_outlier_upper))]
+extreme_outliers <- outliers[which(outliers < extreme_outlier_lower | outliers > extreme_outlier_upper)]
+#Creating a function that tests if the returns are extreme outliers, mild outliers or normal and tags them
+status <- function(x){
+  ifelse(x >= mild_outlier_lower & x <= mild_outlier_upper,"Not an outlier",ifelse(x <= extreme_outlier_lower | x >= extreme_outlier_upper,"Extreme Outlier","Mild Outlier"))
+}
+#Creating a dataframe that includes a status column to show the result of the test
+status_df <- data.frame(returndf, status = status(returndf$Return))
+status_df <- status_df[order(status_df$status),]
+status_df
+count1 <- length(outliers)
+count2 <- length(mild_outliers)
+count3 <- length(extreme_outliers)
+sprintf("Question1 part e: The total amount of outliers are %.f, %.f of them are mild outliers and %.f of them are extreme outliers. The table above shows accordingly with the correct order",count1,count2,count3)
+```
+<font size="5">Question 2 part a</font>
+```{r}
+#Reading Data
+Mutual_Fund_df <- read.csv('MutualFunds.csv')
+#Checking the dataframe structure
+str(Mutual_Fund_df)
+#Plot boxplot
+boxplot(Mutual_Fund_df$MF1, horizontal = TRUE, col ="skyblue3")
+sprintf("The boxplot suggests that 2 outliers exist outside the upper fence")
+```
+<font size="5">Question 2 part b</font>
+```{r}
+#Getting the mean and the std for MF1 returns to calculate zscore
+mean_MF1 <- mean(Mutual_Fund_df$MF1)
+SD_MF1 <- sd(Mutual_Fund_df$MF1)
+#Calculating zscore
+z_MF1 <- data.frame(zscore = (Mutual_Fund_df$MF1-mean_MF1)/SD_MF1)
+#Identifying outliers and unusual values using the Empirical Rule 
+outliers_MF1 <- z_MF1[z_MF1 > 3 | z_MF1 < -3]
+unusual_MF1 <- z_MF1[(z_MF1 > 2 & z_MF1 <=3) | (z_MF1 < -2 & z_MF1 >= -3)]
+#Plotting boxplot using the zscore data to check
+boxplot(z_MF1$zscore, horizontal = TRUE, col ="skyblue3")
+#Counting outliers
+ocountMF1 <- length(outliers_MF1)
+#Plotting a histogram to do a normality check
+ggplot(data=Mutual_Fund_df, aes(MF1))+
+  geom_histogram(binwidth = 3, col = "black", fill = "skyblue3") +
+  ggtitle("Returns") +
+  labs(x = "Returns in %", y = "Frequencies") +
+  theme_grey()
+sprintf("The Empirical test on zscore shows that there is 1 outlier, which is inconsistent with part a. The reason for the inconsistency is that the returns for MF1 are not normally distributed thus zscore can not apply ")
+```
+<font size="5">Question 2 part c</font>
+```{r}
+#Plot boxplot for MF2 returns
+boxplot(Mutual_Fund_df$MF2, horizontal = TRUE, col = "skyblue3")
+sprintf("The boxplot suggests that 1 outlier exists outside the lower fence")
+```
+<font size="5">Question 2 part d</font>
+```{r}
+#Getting the mean and the std for MF2 returns to calculate zscore
+mean_MF2 <- mean(Mutual_Fund_df$MF2)
+SD_MF2 <- sd(Mutual_Fund_df$MF2)
+#Calculating zscore
+z_MF2 <- data.frame(zscore = (Mutual_Fund_df$MF2-mean_MF2)/SD_MF2)
+#Identifying outliers and unusual values using the Empirical Rule 
+outliers_MF2 <- z_MF2[z_MF2 > 3 | z_MF2 < -3]
+unusual_MF2 <- z_MF2[(z_MF2 > 2 & z_MF2 <=3) | (z_MF2 < -2 & z_MF2 >= -3)]
+#Plotting boxplot using the zscore data to check
+boxplot(z_MF2$zscore, horizontal = TRUE, col = "skyblue3")
+#Counting outliers
+ocountMF2 <- length(outliers_MF2)
+#Plotting a histogram to do a normality check
+ggplot(data=Mutual_Fund_df, aes(MF2))+
+  geom_histogram(binwidth = 3, col = "black", fill = "skyblue3") +
+  ggtitle("Returns") +
+  labs(x = "Returns in %", y = "Frequencies") +
+  theme_grey()
+sprintf("The Empirical test on zscore shows that there is 0 outlier, which is inconsistent with part a. The reason for the inconsistency is that the returns for MF1 are not normally distributed thus zscore can not apply ")
+```
+<font size="5">Question 3</font>
+```{r}
+#Reading the data
+library(readxl)
+MetroHomes_df <- read_excel('Homework 1 Question 3.csv')
+#Checking dataframe structure
+str(MetroHomes_df)
+#Renaming columns to to omit odd symbols
+colnames(MetroHomes_df)[1] = "CrimeRate"
+colnames(MetroHomes_df)[2] = "SellingPrice"
+#Plotting the scatter plot
+ggplot(MetroHomes_df, aes(x=CrimeRate, y=SellingPrice)) +
+  ggtitle("Crime Rate vs Selling Price") + 
+  xlab("Crime Rate") +
+  ylab("Selling Price") +
+  geom_point(shape = 23, color="black", fill="lightblue")
+#Computing the correlation between Crime Rate and Selling Price
+cor1 <- cor(MetroHomes_df$CrimeRate, MetroHomes_df$SellingPrice)
+#Excluding the distinct outlier
+MetroHomes_df_clean <- subset(MetroHomes_df,!MetroHomes_df$CrimeRate == '35.84')
+#Plotting the scatter plot without the outlier
+ggplot(MetroHomes_df_clean, aes(x=CrimeRate, y=SellingPrice)) +
+  ggtitle("Crime Rate vs Selling Price") + 
+  xlab("Crime Rate") +
+  ylab("Selling Price") +
+  geom_point(shape = 23, color="black", fill="lightblue")
+#Computing the new correlation
+cor2 <- cor(MetroHomes_df_clean$CrimeRate, MetroHomes_df_clean$SellingPrice)
+sprintf("As shown in the first scatter plot, the observation with 35.84 crimes committed per 100,000 residents stands out from the others.")
+sprintf("The correlation between Crime Rate and Selling Price using all of the given data is %.2f.",cor1)
+sprintf("After excluding the outlier, it is clearly shown on the new scatter plot that the negative correlation grew stronger between the two variables.")
+sprintf("It is further shown by getting the new correlation, which is %.2f, that the negative correlation between the two variables almost doubled in absolute value. This change in correlation changes my impression on the correlation between the Crime Rate and the Selling Price, and also proves that correlation is easily affected by outliers.", cor2)
+```
+<font size="5">Question 4</font>
+```{r}
+#Read the data
+cell_df <- read.csv('CellphoneMarket.csv')
+#Check data frame status
+str(cell_df)
+#Check for NAs
+sum(is.na(cell_df), na.rm = TRUE)
+#Check column names for irregular symbols
+colnames(cell_df)
+#Adjust the uppercase in Churn column to lowercase
+cell_df$Churn. <- tolower(cell_df$Churn.)
+#Change Yes No to 0 1
+cell_df$International.Plan <- ifelse(cell_df$International.Plan == "yes",1,0)
+cell_df$Voice.Mail.Plan <- ifelse(cell_df$Voice.Mail.Plan == "yes",1,0)
+cell_df$Churn. <- ifelse(cell_df$Churn. == "yes",1,0)
+#Check data frame status
+str(cell_df)
+#Drop the Customer column
+tt <- subset(cell_df, select = -c(Customer))
+#Check data frame status
+str(tt)
+
+#Plot histograms for every variable
+par(mfrow = c(3,3), mar =c(2,1,1,1))
+for (i in 1:9){
+  hist(tt[,i], breaks = 80, col = "skyblue3", border ="black", main = colnames(tt)[i], xlab = colnames(tt)[i])
+}
+par(mfrow = c(3,3), mar =c(2,1,1,1))
+for (i in 10:18){
+  hist(tt[,i], breaks = 80, col = "skyblue3", border ="black", main = colnames(tt)[i], xlab = colnames(tt)[i])
+}
+
+#Plot boxplot for every variable
+par(mfrow = c(3,3), mar =c(2,1,1,1))
+for (j in 1:9){
+  boxplot(tt[,j], horizontal = TRUE, col = "skyblue3", border ="black", main = colnames(tt)[j])
+}
+par(mfrow = c(3,3), mar =c(2,1,1,1))
+for (j in 10:18){
+  boxplot(tt[,j], horizontal = TRUE, col = "skyblue3", border ="black", main = colnames(tt)[j])
+}
+
+#Plot Q-Q plot for every variable
+par(mfrow = c(3,3), mar =c(2,1,1,1))
+for (p in 1:9){
+  qqnorm(tt[,p], xlab = "scores", col ="skyblue3", main = colnames(tt)[p])
+  qqline(tt[,p])
+}
+par(mfrow = c(3,3), mar =c(2,1,1,1))
+for (p in 10:18){
+  qqnorm(tt[,p], xlab = "scores", col ="skyblue3", main = colnames(tt)[p])
+  qqline(tt[,p])
+}
+```
+```{r}
+#Get sample size
+SampleSizeAll <- length(tt[,1])
+#Create a summary function which contains statistics, empirical rules, skewness, kurtosis and outlier counts for further analysis
+summary_df <- function(g) {
+  outlie <- (length(boxplot(g,plot=FALSE)$out))
+  One_upper <- round(mean(g, na.rm = TRUE), digits = 2) + round(sd(g, na.rm = TRUE), digits = 2)
+  One_lower <- round(mean(g, na.rm = TRUE), digits = 2) - round(sd(g, na.rm = TRUE), digits = 2)
+  #Two std bounds
+  Two_upper <- round(mean(g, na.rm = TRUE), digits = 2) + 2*round(sd(g, na.rm = TRUE), digits = 2)
+  Two_lower <- round(mean(g, na.rm = TRUE), digits = 2) - 2*round(sd(g, na.rm = TRUE), digits = 2)
+  #Three std bounds
+  Three_upper <- round(mean(g, na.rm = TRUE), digits = 2) + 3*round(sd(g, na.rm = TRUE), digits = 2)
+  Three_lower <- round(mean(g, na.rm = TRUE), digits = 2) - 3*round(sd(g, na.rm = TRUE), digits = 2)
+  
+  Within_One_std <- length(which(g >= One_lower & g <= One_upper))
+  Within_One_SD <- round(100*(Within_One_std/SampleSizeAll), digits =2)
+  
+  Within_Two_std <- length(which(g >= Two_lower & g <= Two_upper))
+  Within_Two_SD <- round(100*(Within_Two_std/SampleSizeAll), digits = 2)
+  
+  Within_Three_std <- length(which(g >= Three_lower & g <= Three_upper))
+  Within_Three_SD <- round(100*(Within_Three_std/SampleSizeAll)  , digits = 2)
+  c(Count = length(g[!is.na(g)]),
+    Mean = round(mean(g, na.rm = TRUE), digits = 2),
+    Median = round(median(g, na.rm = TRUE), digits = 2),
+    Min = round(min(g, na.rm = TRUE), digits = 2),
+    Max = round(max(g, na.rm = TRUE), digits = 2),
+    Range = round((max(g, na.rm = TRUE) - min(g, na.rm = TRUE)), digits = 2),
+    Variance = round(var(g, na.rm = TRUE), digits = 2),
+    StdDev = round(sd(g, na.rm = TRUE), digits = 2),
+    CV_in_Percent = round(((sd(g, na.rm = TRUE)/mean(g, na.rm = TRUE))*100), digits = 2),
+    Within_One_SD,
+    Within_Two_SD,
+    Within_Three_SD,
+    Skew = round((sum((g-mean(g))^3)/length(g))/(sqrt(var(g))^3), digits = 2),
+    Kurtosis = round(((sum((g-mean(g))^4)/length(g))/(var(g)^2))-3, digits =2),
+    outlie)
+  
+}
+#Create summary data frame
+sum_matrix <- data.frame(matrix(nrow = 15, ncol = 18)) 
+#Set correct column names for new data frame
+sum_matrix <- setNames(sum_matrix, colnames(tt))
+
+#Run the summary function for each variable and append to new data frame
+for (l in 1:18){
+  ss <- summary_df(tt[,l])
+  sum_matrix[,l] <- ss
+}
+#Setting correct row names
+rownames(sum_matrix) <- c("Count","Mean", "Median", "Min", "Max", "Range", "Variance", "StdDev", "CV in percent", "% Within 1 SD", "% Within 2 SD", "% Within 3 SD", "Skewness", "Kurtosis", "Outliers Box")
+#Print the tables
+knitr::kable(sum_matrix[,1:9], caption = "Summary")
+knitr::kable(sum_matrix[,10:18], caption = "Summary")
+```
+```{r}
+#Create a correlation matrix for the variables and plot table
+corr_matrix <- round(data.frame(cor(tt)), digits =2)
+knitr::kable(corr_matrix[,1:9], caption = "Correlation Matrix")
+knitr::kable(corr_matrix[,10:18], caption = "Correlation Matrix")
+
+```
+```{r}
+#Plot a new correlation matrix dropping values between 0.2 and -0.2
+corr_matrix[corr_matrix < 0.2 & corr_matrix > -0.2] <- "NA"
+knitr::kable(corr_matrix[,1:9], caption = "Correlation Matrix")
+knitr::kable(corr_matrix[,10:18], caption = "Correlation Matrix")
+```
+```{r}
+#Plot a covariance matrix
+cov_matrix <- round(data.frame(cov(tt)), digits = 2)
+knitr::kable(cov_matrix[,1:9], caption = "Covariance Matrix")
+knitr::kable(cov_matrix[,10:18], caption = "Covariance Matrix")
+
+#Plotting scatterplots between variables which have relatively stronger correlations
+ggplot(tt, aes(x=International.Plan, y=Churn.)) +
+  ggtitle("International.Plan vs Churn") + 
+  xlab("International.Plan") +
+  ylab("Churn") +
+  geom_point(shape = 23, color="black", fill="lightblue")
+ggplot(tt, aes(x=Day.Minutes, y=Churn.)) +
+  ggtitle("Day.Minutes vs Churn") + 
+  xlab("Day.Minutes") +
+  ylab("Churn") +
+  geom_point(shape = 23, color="black", fill="lightblue")
+ggplot(tt, aes(x=Customer.Service.Calls, y=Churn.)) +
+  ggtitle("Customer.Service.Calls vs Churn") + 
+  xlab("Customer.Service.Calls") +
+  ylab("Churn") +
+  geom_point(shape = 23, color="black", fill="lightblue")
+```
+
+
+<font size ="5">Question 4 Answer</font>
+```{r}
+sprintf("According to concepts learnt from EDA, I analyzed the data set using informal techniques such as histograms, box plots, Q-Q plots and the empirical rule to assess normality, and further on used skewness and kurtosis to learn more about each variables distribution. Below are the results based on my foundings regarding part 1 of the question (How the variables are distributed).")
+#Creating a data frame with findings regarding distribution of each variable
+result_df <- data.frame(AccountLength = "Close to Normal",	InternationalPlan = "Right Skewed",	VoiceMailPlan = "Right Skewed",	VoiceMailMessages = "Right Skewed",	DayMinutes = "Close to Normal",	DayCalls = "Close to Normal",	DayCharge = "Close to Normal",	EveningMinutes = "Close to Normal",	EveningCalls = "Close to Normal",	EveningCharge = "Close to Normal",	NightMinutes = "Close to Normal",	NightCalls = "Close to Normal",	NightCharge = "Close to Normal",	InternationalMinutes = "Close to Normal with several outliers",	InternationalCalls = "Close to Normal",	InternationalCharge = "Close to Normal with several outliers",	CustomerServiceCalls = "Right Skewed",	Churn = "Right Skewed")
+#Printing the data frame in table format
+knitr::kable(result_df[,1:9], caption = "Question 4 part 1")
+knitr::kable(result_df[,10:18], caption = "Question 4 part 1")
+sprintf("Part 2: After assessing the correlation matrix of variables between columns B-R, and dropping any absolute values below 2, we can see that the highly positive correlated pairs are easy to interpret(Voice Mail Plan vs Voice Mail Messages, Minutes vs Charges)")
+sprintf("Part 3: According to the correlation matrix, there are 4 variables that are slightly more correlated (r>=2) to Churn, which are International Plan, Day Minutes, Day Charge and Customer Service Calls. Since we have established previously Day Minutes and Day Charge are perfectly correlated, there are simply three aspects left to analyze. The relation between Churn and customers with International Plan, Churn and customers who talks for longer time on the phone in daytime, Churn and customers who has called in more to the customer service. After assessing the correlation as well as scatter polts(although most of the variables in question are nominal and scatter plots cannot really portray the relations of nominal variables), I would recommend the company to focus on targeting advertisements and  creating deal packages for customers with International Plans, and also work on having more competitive charges in the daytime, finally training on customer service might also help with reducing churn")
+```
+<font size ="5">Question 5</font>
+```{r}
+#Creating data frames for both projects including all the given data
+Expand_df <- data.frame(Prob = c(0.5, 0.25, 0.25), CF = c(100, 75, 40), Cost = c(60, 60, 60), NPV = c(40, 15, -20))
+Enter_df <- data.frame(Prob = c(0.2, 0.5, 0.3), CF = c(200, 75, 25), Cost = c(60, 60, 60), NPV = c(140, 15, -35))
+#Calculating NPV*probability and summing to get expected NPV
+Expand_df$PNPV <- c(Expand_df$Prob*Expand_df$NPV)
+Enter_df$PNPV <- c(Enter_df$Prob*Enter_df$NPV)
+Expand_ENPV <- sum(Expand_df$PNPV)
+Enter_ENPV <- sum(Enter_df$PNPV)
+#Creating a new column with each projects ENPV (mean)
+Expand_df$ENPV <- c(18.75,18.75,18.75) 
+Enter_df$ENPV <- c(25, 25, 25)
+
+#Creating a function to calculate the variance abiding the rule of discrete distribution
+variance <- function(u){
+  (u[,4]-u[,6])^2*u[,1]
+}
+#Calculating Variance SD and CV for both projects
+Expand_Var <- sum(variance(Expand_df))
+Expand_SD <- sqrt(Expand_Var)
+Enter_Var <- sum(variance(Enter_df))
+Enter_SD <- sqrt(Enter_Var)
+Expand_CV <- (Expand_SD/Expand_ENPV)*100
+Enter_CV <- (Enter_SD/Enter_ENPV)*100
+sprintf("a)The expected net present value of expanding semiconductor business project is %.2f million dollars.",Expand_ENPV)
+sprintf("b)The variance and standard deviation of expanding semiconductor business project is %.2f million dollars square and %.2f million dollar respectively.",Expand_Var,Expand_SD)
+sprintf("c)The expected net present value of entering home computer market business project is %.f million dollars.",Enter_ENPV)
+sprintf("d)The variance and standard deviation of entering home computer market business project is %.f million dollars square and %.2f million dollars respectively.",Enter_Var,Enter_SD)
+sprintf("e)The entering home computer market business project has a higher expected NPV which is %.f million dollars.", Enter_ENPV)
+sprintf("f)Comparing standard deviations between the two projects, we can find that the expanding semiconductor business project has lower standard deviation hence has the least risk")
+sprintf("g)The CV for expanding semiconductor business project and entering home computer market business project is %.f%% and %.f%% respectively, comparing them we can get that expanding semiconductor business project carries the least risk, which is consistent with part f)", Expand_CV, Enter_CV)
+```
+
+<font size ="5">Question 6</font>
+```{r}
+#Determine the probability of success and failure and creating the probability model
+s_prob <- 0.27
+f_prob <- 1-s_prob
+calls <- c("Visit 1","Visit 2","Visit 3","Visit 4","Exhaust")
+probability <- c(s_prob, s_prob*f_prob, f_prob^2*s_prob, f_prob^3*s_prob, f_prob^4)
+#Checking if the sum of all probabilities is 1
+sum(probability)
+prob_df <- data.frame(matrix(probability,nrow =1, ncol =5))
+colnames(prob_df) <- calls
+row.names(prob_df) <- "Probability"
+sprintf("Part a: The probability model is shown below")
+#Printing table
+knitr::kable(prob_df, caption = "Probability Model")
+```
+```{r}
+#Finding the probability for each time a technicians is called in
+call_prob <- data.frame(c(s_prob,f_prob*s_prob,f_prob^2*s_prob,f_prob^3))
+#Checking if the sum of all probabilities is 1
+sum(call_prob)
+#Calculating the expected number of technicians called in
+tech_num <- data.frame(c(1,2,3,4))
+call_exp <- sum(call_prob*tech_num)
+sprintf("Part b: The expected number of service technicians that will be called in is %.2f technicians.",call_exp)
+```
+```{r}
+#Determine cost for each call in, also cost when budget exhaust
+fix_cost <- data.frame(c(500,1000,1500,2000,9500))
+#Calculating expected amount spent
+spent_exp <- sum(t(prob_df)*fix_cost)
+sprintf("Part c: The expected amount spent on the machine is %.2f dollars.",spent_exp)
+```
+<font size ="5">Question 7</font>
+```{r}
+#Assigning the probability and sample size
+Q7_n <- 20
+Q7_p <- 0.4
+#Calculating point probability and cumulated probability
+p10 <- dbinom(10,Q7_n,Q7_p)
+p1_10 <- pbinom(10,Q7_n,Q7_p)
+p15 <- pbinom(14,Q7_n,Q7_p, lower.tail = FALSE)
+sprintf("Part a: The probability that exactly 10 of the attendees purchasing a club membership is %.2f.",p10)
+sprintf("Part a: The probability that no more than 10 of the attendees purchasing a club membership is %.2f.",p1_10)
+sprintf("Part a: The probability that at least 15 of the attendees purchasing a club membership is %.4f.",p15)
+```
+<font size ="5">Question 8</font>
+```{r}
+#Creating a function to calculate cumulated probability for hypergeometric probability distributions, and plot bar charts under each fraction given
+Q8 <- function(aa){
+fraction_df <- data.frame(c(seq(0.02,0.18,by=0.02)))
+aa = aa
+kk = 50
+prob_matrix <- data.frame(matrix(nrow =9, ncol= 2))
+for(ii in 1:9){
+  mm = 1000*fraction_df[ii,]
+  nn = 1000 - mm
+  pp <- phyper(aa,mm,nn,kk)
+  prob_matrix[ii,2] <- pp
+}
+#Inserting the fractions given
+prob_matrix[,1] <- fraction_df
+#Changing column names
+colnames(prob_matrix) <- c("Fraction","Acceptance")
+#Changing data type to character for Fraction column to be visible in chart
+prob_matrix$Fraction <- as.character(prob_matrix$Fraction)
+str(prob_matrix)
+
+library(ggplot2)
+ggplot(data=prob_matrix, aes(x=Fraction, y=Acceptance))+
+  geom_bar(stat = "identity", col = "black", fill = "lightblue")+
+  ggtitle("Acceptance probability under each Fraction given",aa) + 
+  labs(x = colnames(prob_matrix), y = "Acceptance probability")+
+  theme_grey()
+}
+#Assign the given accepted amount of defective chips to the function
+Q8(4)
+Q8(5)
+sprintf("Comparing the two charts plotted above, it is clearly shown that the acceptance probabilty for the second one is higher under each given fraction, which is logical since your tolerance for defective chips are higher")
+```
+<font size ="5">Question 9</font>
+```{r}
+#Creating data frames for possible demands and productions for both pizzas
+PC_df <- (seq(2,9, by=1)*100)
+names(PC_df) = (seq(2,9, by=1)*100)
+
+VC_df <- (seq(3,8, by=1)*100)
+names(VC_df) = (seq(3,8, by=1)*100)
+
+#Creating functions to calculate profit for both pizzas
+PCprofit <- function(produce,demand){
+  ifelse(produce>demand,(demand*9-produce*4.5-500),(produce*9-produce*4.5-500))
+}
+VCprofit <- function(produce1,demand1){
+  ifelse(produce1>demand1,(demand1*9-produce1*5-500),(produce1*9-produce1*5-500))
+}
+#Creating profit matrix for both pizzas
+PC_Result <- outer(PC_df,PC_df,PCprofit)
+VC_Result <- outer(VC_df,VC_df,VCprofit)
+sprintf("Part a: The profit matrix for both pizzas are shown below")
+knitr::kable(PC_Result, caption = "Plain Cheese Profit Matrix in dollars rows= production columns = demand")
+knitr::kable(VC_Result, caption = "Veggie&Cheese Profit Matrix in dollars rows= production columns = demand")
+```
+```{r}
+#Create demand probability table for both pizzas
+PC_table <- data.frame(seq(2,9, by=1)*100)
+colnames(PC_table) <- "Demand"
+PC_table$Prob <- c(0.1,0.15,0.15,0.2,0.2,0.1,0.05,0.05)
+#Calculating expecte demand
+exp_demand_pc <- sum(PC_table$Demand*PC_table$Prob)
+VC_table <- data.frame(seq(3,8, by=1)*100)
+colnames(VC_table) <- "Demand"
+VC_table$Prob <- c(0.1,0.2,0.25,0.25,0.15,0.05)
+#Calculating expected demand
+exp_demand_vc <- sum(VC_table$Demand*VC_table$Prob)
+#Creating expected profit vector 
+exp_profit_pc <- t(outer(PC_df,exp_demand_pc,PCprofit))
+exp_profit_vc <- t(outer(VC_df,exp_demand_vc,VCprofit))
+row.names(exp_profit_pc) <- exp_demand_pc
+row.names(exp_profit_vc) <- exp_demand_vc
+sprintf("Part b: Expected profit vectors for both pizzas are shown below.")
+knitr::kable(exp_profit_pc, caption = "Plain Cheese expected Profit Matrix in dollars rows= demand columns = productions")
+knitr::kable(exp_profit_vc, caption = "Veggie&Cheese expected Profit Matrix in dollars rows= demand columns = productions")
+sprintf("Part c: To maximize profit, Ken should produce 500 pizzas each, to get the maximized expected profit of 3,250 dollars")
+```
+<font size ="5">Question 10</font>
+```{r}
+Inv_A_1 = 6000*1.12
+Inv_B_1 = 6000*1.24*0.6+6000*1.24*0.4*0.5
+Inv_A_1
+Inv_B_1
+sprintf("Part a: Depositing in country A with an annual interest rate of 12%% has a higher expected value in one year, which is %.f dollars.", Inv_A_1)
+Inva = 96000*1.12*0.6+96000*1.12*0.4*2
+Invb = 96000*1.24
+Inva
+Invb
+sprintf("Part b: Converting to dollars and taking an annual 12%% interest rate and converting them back to pesos at the end of the year is a better investment option, which gets you %.f pesos expected value.", Inva)
+sprintf("Assuming the investments in the questions are all for use in said local country, the two higher expected value strategies differ when one relies on forex rate change and the other does not, and for part b, assuming we are residents at country B, although the question does not imply a probability of dollars going weak against pesos, but in real life residents at country B would suffer from this risk and hence is exposed to higher risk when he has to go through currency exchange in his investments.")
+```

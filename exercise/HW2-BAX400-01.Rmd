@@ -1,0 +1,410 @@
+---
+title: "HW2 BAX400-01"
+author: "Yi Yin (Ian) Chen"
+date: "2023-08-23"
+output:
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages('dplyr')
+install.packages('splitstackshape')
+install.packages('ggplot2')
+
+```
+<font size="5">Question 1</font>
+```{r}
+#Finding the fatality number under 0.95 prob
+q1_a=qnorm(0.95,125,31,lower.tail=FALSE)
+sprintf("Part a: There is a 0.95 probability that there would be at least %.f fatalities.", q1_a)
+#Finding the  fatality when the probability is lesser and equal to 0.98
+q1_b=qnorm(0.98,125,31)
+sprintf("Part b: There is a 0.98 probability that there would be no more than %.f fatalities.", q1_b)
+```
+<font size="5">Question 2</font>
+```{r}
+#Defining prob, sample size and E_p_hat
+p <- 0.03
+n <- 100
+E_p_hat <- p
+#Computing Standard Error
+SE_p_hat <- sqrt(p*(1-p)/(n))
+#Computing producer's risk
+p_greater_than_0.05 <- round((pnorm(0.05, E_p_hat, SE_p_hat, lower.tail = FALSE))*100, digits = 2) 
+sprintf("Part a: The producer's risk for this sampling plan is %.2f%%.", p_greater_than_0.05)
+#Defining prob
+p2 <- 0.09
+E_p2_hat <- p2
+#Computing Standard Error
+SE_p2_hat <- sqrt(p2*(1-p2)/n)
+#Computing consumer's risk
+p_lower_than_0.05 <- round((pnorm(0.05, E_p2_hat , SE_p2_hat, lower.tail = TRUE))*100, digits = 2)
+sprintf("Part b: The consumer's risk for this sampling plan is %.2f%%.", p_lower_than_0.05)
+```
+<font size="5">Question 3</font>
+```{r}
+#Defining population mean, sd and sample size
+population_mean = 330
+population_sd = 80
+n = 40
+#Standard error
+SE_means = population_sd/sqrt(n)
+sprintf("Part a: The standard error of the mean is %.2f minutes.", SE_means)
+#Finding probability greater than 320
+sample_mean_greater_than_320 <- round(100*(pnorm(320, 330, SE_means, lower.tail = FALSE)), digits = 2)
+sprintf("Part b: The likelihood the sample mean is greater than 320 minutes is %.2f%%.", sample_mean_greater_than_320)
+#Finding probability between 320 and 350
+sample_mean_between_320_350 <- round(100*(pnorm(350, 330, SE_means, lower.tail = TRUE)-pnorm(320, 330, SE_means, lower.tail = TRUE)))
+sprintf("Part c: The likelihood the sample mean is between 320 & 350 minutes is %.2f%%." ,sample_mean_between_320_350)
+#Finding probability greater than 350
+sample_mean_greater_than_350 <- round(100*(pnorm(350, 330, SE_means, lower.tail = FALSE)), digits = 2)
+sprintf("Part d: The likelihood the sample mean is greater than 350 minutes is %.2f%%.", sample_mean_greater_than_350)
+#Finding probability greater than 350 and lesser than 310
+sampling_error_20 <- round(100*(pnorm(350, 330, SE_means, lower.tail = FALSE) + pnorm(310, 330, SE_means, lower.tail = TRUE)), digits = 2)
+sprintf("Part e: The probability that the sampling error would be more than 20 minutes is %.2f%%.", sampling_error_20)
+```
+<font size="5">Question 4</font>
+```{r}
+#Defining sample size, probability
+n = 100
+p = 0.35
+E_p_hat = p
+#Calculating Standard Error
+SE_p_hat = sqrt(p*(1-p)/n)
+#Finding probability greater than 40
+greater_than_40 <- pnorm(0.4, E_p_hat, SE_p_hat, lower.tail = FALSE)*100
+sprintf("Part a: The probability that in a sample of 100 employed adults of age 62 and older, more than 40%% have pushed back their retirement date is %.2f%%.", greater_than_40)
+#Changing sample size to 200 and calculate probability greater than 40
+n2 = 200
+SE_p_hat2 = sqrt(p*(1-p)/n2)
+greater_than_40_200 <- pnorm(0.4, E_p_hat, SE_p_hat2, lower.tail = FALSE)*100
+sprintf("Part b: The probability that in a sample of 200 employed adults of age 62 and older, more than 40%% have pushed back their retirement date is %.2f%%.", greater_than_40_200)
+
+sprintf("Part c: The greater the sample size makes the standard error of proportion smaller, hence making the distribution of proportions clustering more to the population proportion, in other words the spread is lower. The probablility of more than 40%% adults of age 62 and older drops from %.2f%% to %.2f%%.", greater_than_40, greater_than_40_200)
+```
+<font size="5">Question 5</font>
+```{r}
+#Defining mean, sd and probability
+mean = 200
+SD = 30
+p <- 0.94
+#Find the quartile that the probability of running short is no more than 6%
+in_stock <- qnorm(0.94,mean, SD, lower.tail = TRUE)
+sprintf("%.f HP laser printers should be in stock when the retailer reorders from the manufacturer.", in_stock)
+```
+
+<font size="5">Question 6</font>
+```{r}
+#Define rate and find probability of taking longer than 15 minutes
+rate <- 8/60
+p15 <- round(pexp(15,rate,lower.tail = FALSE)*100,digits = 2)
+sprintf("The probability that the checkout takes longer than 15 minutes is %.2f%%.", p15)
+#Use a for loop to find the rate needed to meet the benchmark
+rates <- seq(14, 100, by=1)*0.01
+rate_df <- data.frame(matrix(ncol=1,nrow=17))
+#row.names(rate_df) <- (rates) 
+for (i in rates){
+  if(pexp(15,i,lower.tail = FALSE)<=0.05){
+    break
+  }
+  goalrate <- i 
+}
+i <- i*60
+sprintf("If management wants to match the benchmark probability, the new service rate for this store should be %.f customers per hour.", i)
+sprintf("Ways to boost up the service rate includes putting in bonus incentives encouraging associates to work faster, another way to is to set up self checkout counters since the complaint came from customers, setting up self checkout counters might help.")
+```
+<font size="5">Question 7</font>
+```{r}
+#Define rate
+rate <- 1/2.7
+#Finding the probabilirty of less than 3 minutes
+less_3 <- round(pexp(3,rate,lower.tail = TRUE)*100,digits = 2)
+sprintf("Given the mean of the sercice time 2.7 minutes, the proportion of cars that can get through the toll booth under 3 minutes is %.2f%%.", less_3)
+```
+<font size="5">Question 8</font>
+```{r}
+#Define mean, sd, and compute probability of under 1 minute
+mean = 62
+SD = 2
+p_under_60 <- pnorm(60,mean,SD,lower.tail = TRUE)
+#Find probability 2 out of 5
+twice <- round(dbinom(2, 5, p_under_60)*100,digits=2)
+sprintf("The probability of Leslie swimming under a minutes exactly two times for her next five races is %.2f%%.", twice)
+```
+<font size="5">Question 9</font>
+```{r}
+#Define Probability and sample sizes
+N = 25
+n = 4
+p = 1/5
+#Probability of exactly one 
+p_one <- round(dhyper(1,5,20,n)*100, digits = 2)
+sprintf("Part a: The probability exactly one of the four audited had a charitable deduction of more than $1,000 is %.2f%%.", p_one)
+#Probability of at least one
+p_atleast_one <- round(phyper(0,5,20,n,lower.tail=FALSE)*100, digits = 2)
+sprintf("Part b: The probability at least one of the audited returns had a charitable contribution of more than $1,000 is %.2f%%.", p_atleast_one)
+```
+<font size="5">Question 10</font>
+```{r}
+#Define mean
+mean = 3
+#Probability of no cars sold
+p0 <- round(dpois(0,mean)*100, digits =2)
+sprintf("The probability that no Mercedes is sold on a particular day is %.2f%%.", p0)
+#Probability that at least one car was sold for the next 5 days
+p5 <- round(dbinom(5,5,ppois(0,mean,lower.tail = FALSE))*100,digits = 2)
+sprintf("The probability that for each of the five consecutive days at least one Mercedes is sold is %.2f%%.", p5)
+```
+<font size="5">Question 11</font>
+```{r}
+#Defining mean and finding the waiting time for each
+u = 0.5
+t_50 <- qexp(0.5,u)
+t_25 <- qexp(0.25,u)
+t_30 <- qexp(0.3,u)
+sprintf("Part a: The median waiting time is %.2f minutes.", t_50)
+sprintf("Part b: The first quartile of waiting time is %.2f minutes.", t_25)
+sprintf("Part c: The 30th percentile of waiting time is %.2f minutes.", t_30)
+```
+<font size="5">Question 12</font>
+```{r}
+#Read file
+supermarket_df <- read.csv('SupermarketTrans.csv')
+#Check data type
+str(supermarket_df)
+#Clean $ sign
+supermarket_df$Revenue <- as.numeric(gsub("\\$", "", supermarket_df$Revenue))
+#Checking the proportion of the dataset
+sum_group <- aggregate(supermarket_df$Revenue,list(supermarket_df$Product.Family),FUN = sum)
+sum_group <- aggregate(supermarket_df$Revenue,list(supermarket_df$Product.Family),FUN = length)
+
+sprintf("Part a: It makes sense to use stratified sampling to estimate the mean because there is significant variation between different product family, and also by checking the data you can see the proportion of the data grouped by product family is heavily weighted in the food category.")
+#Finding population and defining sample size
+population_size <- sum(sum_group$x)
+n <- 250
+#Find proportion of each categories
+prop_drink <- round(n*sum_group$x[1]/population_size,digits = 0)
+prop_food <- round(n*sum_group$x[2]/population_size,digits = 0)
+prop_non <- round(n*sum_group$x[3]/population_size,digits = 0)
+sprintf("Part b: The number of transactions we should sample using proportional sample sizes for the three different product families Drink, Food and Non-consumables are %.f, %.f and %.f respectively.", prop_drink, prop_food, prop_non)
+set.seed(1)
+#Run strata sampling and find mean and sd for each category
+strata_df <- splitstackshape::stratified(supermarket_df,"Product.Family", c("Drink" = 22, "Food" = 181, "Non-Consumable" = 47))
+strata_mean <- aggregate(strata_df$Revenue,list(strata_df$Product.Family), FUN = mean)
+strata_sd <- aggregate(strata_df$Revenue,list(strata_df$Product.Family), FUN = sd)
+drink_mean <- round(strata_mean$x[1], digits = 2)
+food_mean <- round(strata_mean$x[2], digits = 2)
+non_mean <- round(strata_mean$x[3], digits = 2)
+drink_sd <- round(strata_sd$x[1], digits = 2)
+food_sd <- round(strata_sd$x[2], digits = 2)
+non_sd <- round(strata_sd$x[3], digits = 2)
+set.seed(Sys.time())
+sprintf("Part c: The individual sample means of revenue for the three product families Drink, Food and Non-Consumables are, %.2f dollars, %.2f dollars and %.2f dollars repectively. The sample standard deviations for the three product families in the same order are, %.2f dollars, %.2f dollars and %.2f dollars.", drink_mean, food_mean, non_mean, drink_sd, food_sd, non_sd)
+```
+<font size="5">Question 13</font>
+```{r}
+#Find probability of response
+p <- 0.55+0.45*0.3
+no_response <- 1-p
+#Finding probability of responses are greater than 110
+greater_than_110 <- round(pbinom(109,150,p,lower.tail=FALSE)*100, digits =2)
+sprintf("The probability of getting at least 110 responses total of returns from both waves is %.2f%%.", greater_than_110)
+```
+<font size="5">Question 14</font>
+```{r}
+#Defining probability of default, mean of charged, sd of charges and proportion of bad debt
+p <- 0.07
+mean <- 350
+sd <- 100
+p2 <- 0.8
+x <- 250/p2
+#Find probability bad debt will exceed $250
+p_250 <- round(100*p*pnorm(x,mean,sd,lower.tail=FALSE), digits =2)
+sprintf("Part a: The probability that a typical customer in this group will default and produce a write-off of more than $250 in bad debt is %.2f%%.", p_250)
+#Define sample size and find mean and sd
+n <- 500
+p <- p_250/100
+mean <- n*p
+sd <- round(sqrt(n*p*(1-p)), digits = 2)
+sprintf("Part b: The mean and standard deviation of the number of customers who will meet the description in part a are %.2f customers and %.2f customers respectively.", mean,sd)
+#Finding probability of at least 25 of them will meet the description
+at_least_25 <- round(100*pbinom(24,500,p, lower.tail = FALSE), digits = 2)
+sprintf("Part c: The probability that at least 25 of them will meet the description in part a is %.2f%%", at_least_25)
+```
+<font size="5">Question 15</font>
+```{r}
+#Set a vector of potential sd's
+sd <- seq(1,1000,by = 1)*0.001
+sd_vec <- data.frame(matrix(ncol =1000, nrow = 2))
+#Create a function to calculate cost
+cost <- function(std){
+  (pnorm(1.01,1,std,lower.tail = FALSE)+pnorm(0.98,1,std,lower.tail = TRUE))*100000*12+10/(std^2)
+}
+#Test out the potential sd's
+for (i in sd){
+  c <- cost(i)
+  sd_vec[1,i*1000] <- c
+}
+
+c(sd)
+sd_vec[2,] <- t(data.frame(c(sd)))
+sd_vec <- sd_vec[ ,colSums(is.na(sd_vec))==0]
+min(sd_vec[1,])
+#Print out results
+knitr::kable(sd_vec, caption = "Elevator Rail cost & sd")
+#Find min sd
+min_sd <- 0.008
+sprintf("Part a: The standard deviation of %.3f inches minimizes the annual cost of producing elevator rails.", min_sd)
+
+mean <- 1
+n <- 1000
+SE_rail <- min_sd/sqrt(n)
+#Find the quartile that has 0.001 probability
+q_1 <- qnorm(0.001,mean,SE_rail,lower.tail=TRUE)
+sprintf("Part b: One elevator rail in 1000 will be at least %.4f inches in diameter.", q_1)
+```
+<font size="5">Question 16</font>
+```{r}
+#Create a dataframe with all outcomes
+wheel_df <- data.frame(winning = c(seq(0,1000,by=1)))
+#Calulate theomean and theo_sd
+theo_mean <- round(mean(wheel_df$winning), digits = 2)
+theo_sd <- round(sqrt(sum((wheel_df$winning-theo_mean)^2)/length(wheel_df$winning)),digits = 2)
+sprintf("Part a: The theoretical mean and theoretical standard deviation are %.f dollars and %.2f dollars respectively.", theo_mean,theo_sd)
+#Create a for loop simulating and calculating sample means, and plot for each sample size
+wheel_win <- c(seq(0,1000,by=1))
+sample_sizes <- c(1:10)
+set.seed(69)
+par(mfrow = c(3,4), mar =c(2,1,1,1))
+for (i in 1:10){
+  rep_spin_wheel <- replicate(1000, {samp <- sample(wheel_win,i, replace = TRUE)})
+  matrix_spin_wheel <- matrix(rep_spin_wheel, nrow = i)
+  matrix_spin_wheel <- t(matrix_spin_wheel)
+  samp_means <- rowMeans(matrix_spin_wheel)
+  matrix_spin_wheel <- cbind(matrix_spin_wheel, samp_means)
+  df_spin_wheel <- data.frame(matrix_spin_wheel)
+  hist(df_spin_wheel$samp_means, breaks = 30, col = "skyblue3", border ="black", main = i, xlab = "Sample means")
+}
+#Create a summarized dataframe
+summarized_df <- data.frame(matrix(nrow = 5, ncol = 10))
+#Use similar for loop to simulate and further calculate the mean of sample means, sd of sample means, theoretcial standard error, probability of getting greater than $600
+for (i in 1:10){
+  rep_spin_wheel <- replicate(1000, {samp <- sample(wheel_win,i, replace = TRUE)})
+  matrix_spin_wheel <- matrix(rep_spin_wheel, nrow = i)
+  matrix_spin_wheel <- t(matrix_spin_wheel)
+  samp_means <- rowMeans(matrix_spin_wheel)
+  matrix_spin_wheel <- cbind(matrix_spin_wheel, samp_means)
+  mean_sm <- round(mean(samp_means), digits = 2)
+  sd_sm <- round(sd(samp_means), digits = 2)
+  theo_se <- round(theo_sd/sqrt(i), digits =2)
+  df_spin_wheel <- data.frame(matrix_spin_wheel)
+  p_greater_600 <- round(nrow(df_spin_wheel[df_spin_wheel$samp_means > 600, ])/1000, digits = 2)
+  summary <- data.frame(c(theo_mean, mean_sm, theo_se, sd_sm, p_greater_600))
+  summarized_df[,i] <- summary
+}
+colnames(summarized_df) <- c("1","2","3","4","5","6","7","8","9","10")
+row.names(summarized_df) <- c("Theoretical Mean", "Mean of Sample Means","Theoretical Standard Error","Standard Deviation of Sample Means","P(winning > $600)")
+knitr::kable(summarized_df, caption = "Summarized Table")
+sprintf("Part b-k: Observing the distributions and the summarized table, we can see that the Mean of Sample Means starts to move closer to the Theoretical Mean, the Theoretical Standard error dropped drastically as the sample size grew, the difference between the Theoretical Standard Error and Standard Deviation of Sample Means decreased as the sample size grew from 1 to 10. You can also see from the Probability of winning more than $600 that as the sample size increases the probability decreases, reflecting that the mean of sample means is moving closer to 500, which is the Theoretical Mean.")
+set.seed(Sys.time())
+```
+
+
+
+
+
+<font size="5">Question 17</font>
+```{r}
+#Calculate each possible outcomes of 7's of rolling two dices 20 times and their probability
+prob_df <- data.frame(matrix(nrow=1,ncol=21))
+for (t in 0:20){
+  ppp <- data.frame(dbinom(t,20,1/6))
+  prob_df[,t+1] <- ppp
+}
+prob_df <- rbind(prob_df, c(0:20))
+prob_df <- t(prob_df)
+prob_df <- data.frame(prob_df)
+colnames(prob_df) <- c("Prob", "Times")
+#Calculate theo mean and theo sd
+prob_df$mean <- prob_df$Prob*prob_df$Times
+theo_mean <- round(sum(prob_df$mean), digits = 2)
+theo_sd <- round(sqrt(20*(1/6)*(1-(1/6))), digits = 2)
+sprintf("Part a: The theoretical mean and theoretical standard deviation are %.f number of 7's and %.2f number of 7's respectively.", theo_mean,theo_sd)
+dice_scores <- t(prob_df$Times)
+times_prob <- t(prob_df$Prob)
+sample_sizes <- c(1:10)
+set.seed(99)
+#Create simulation similar to Q16 and plot
+par(mfrow = c(3,4), mar =c(2,1,1,1))
+for (i in 1:10){
+  rep_dice <- replicate(1000, {samp <- sample(dice_scores,i, replace = TRUE, prob = times_prob)})
+  matrix_dice <- matrix(rep_dice, nrow = i)
+  matrix_dice <- t(matrix_dice)
+  samp_means <- rowMeans(matrix_dice)
+  matrix_dice <- cbind(matrix_dice, samp_means)
+  df_dice_roll <- data.frame(matrix_dice)
+  hist(df_dice_roll$samp_means, breaks = 10, col = "skyblue3", border ="black", main = i, xlab = "Sample means")
+}
+summarized_df <- data.frame(matrix(nrow = 4, ncol = 10))
+#Make a table with the corresponding statistics similar to Q16
+for (i in 1:10){
+  rep_dice <- replicate(1000, {samp <- sample(dice_scores,i, replace = TRUE, prob = times_prob)})
+  matrix_dice <- matrix(rep_dice, nrow = i)
+  matrix_dice <- t(matrix_dice)
+  samp_means <- rowMeans(matrix_dice)
+  matrix_dice <- cbind(matrix_dice, samp_means)
+  df_dice_roll <- data.frame(matrix_dice)
+  mean_sm <- round(mean(samp_means), digits = 2)
+  sd_sm <- round(sd(samp_means), digits = 2)
+  theo_se <- round(theo_sd/sqrt(i), digits =2)
+  summary <- data.frame(c(theo_mean, mean_sm, theo_se, sd_sm))
+  summarized_df[,i] <- summary
+}
+colnames(summarized_df) <- c("1","2","3","4","5","6","7","8","9","10")
+row.names(summarized_df) <- c("Theoretical Mean", "Mean of Sample Means","Theoretical Standard Error","Standard Deviation of Sample Means")
+knitr::kable(summarized_df, caption = "Summarized Table")
+sprintf("The fundamental difference of the two simulations is that this one is not uniformly distrubuted, the values and outcomes do not have the same probability and hence needs to be determined before the simulation. Looking at the summarized table you could still see similar trends as the former simulation, Mean of Sample Means are moving closer to theoretical mean and the difference between Theoretical Standard Error and Standard Deviation of Sample Means decreases as the sample size increases. I would say based from the results the centeral limit theorom still holds.")
+
+```
+
+
+
+
+
+<font size="5">Question 18</font>
+```{r}
+#Define the probabilities of both lines and size
+n <- 500
+p_super <- 0.02
+p_premium <- 0.01
+q_99_super <- qbinom(0.99,n,p_super,lower.tail=TRUE)
+q_99_premium <- qbinom(0.99,n,p_premium, lower.tail=TRUE)
+sprintf("Part a: The smallest integer k (for each line separately) such that you can be 99%% sure that the line will not produce more than k defective watches in a given hour are %.f and %.f for Super line and Premium line respectively.", q_99_super, q_99_premium)
+
+p_premium1 <- 0.99
+for (i in 500:600){
+  if(qbinom(0.99,i,p_premium1,lower.tail=FALSE)>=501){
+    break
+  }
+  goalwatch <- i
+}
+sprintf("Part b: The %.f watches should be packed to be 99%% sure that when the customer opens the package, there are at least 500 defect-free watches.", goalwatch)
+watches_sent <- c(100:110)
+premium_line <- function(probability,sent){
+  defect_free <- probability*sent
+  defect_watch <- sent-defect_free
+  cost <- 450*sent+ifelse(defect_free<100,100-defect_free,0)*1500
+  profit <- 50000-cost
+  print(profit)
+}
+for (y in watches_sent){
+  premium_line(0.99,y)
+}
+for (x in watches_sent){
+  premium_line(0.98,x)
+}
+sprintf("Seen from the printed expected revenue, you can see that 101 watches and 102 watches should be sent from the Premium line and Super line respectively.")
+```
+

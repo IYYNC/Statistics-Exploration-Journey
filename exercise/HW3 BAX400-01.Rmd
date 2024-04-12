@@ -1,0 +1,814 @@
+---
+title: "Untitled"
+author: "Ian Chen"
+date: "2023-09-03"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+<font size="5">Question 1</font>
+A special industrial battery must have a life of at least 400 hours. A hypothesis test is to be conducted with a 0.02 significance level. If the batteries from a particular production run have an actual mean use life of 385 hours, the production manager wants a sampling procedure that only 10% of the time would show erroneously that the batch is acceptable. What sample size is recommended for the hypothesis test? Assume 30 hours as an estimate of the standard deviation.
+$$H_0:\mu\ge400 hrs\\H_1:\mu <400hrs$$
+```{r Question 1}
+#Determining alpha, beta, power, and other statistics and parameters
+alpha <- 0.02
+beta <- 0.1
+power <- 1-beta
+mu <- 385
+test <- 400
+#Run t.test to find the minimum sample size
+ttest <- pwr.t.test(n = NULL,d = (mu-test)/30,sig.level = alpha ,power = power, type = "one.sample",alternative = "less")
+#Round up n to find the minimum sample size
+n <- ceiling(ttest$n)
+sprintf("Question 1: A sample size of %.f is recommended for the hypothesis test with the given power, significance level and cohen's d.", n)
+```
+<font size="5">Question 2</font>
+The values listed in the CSV file WaitingTimes are waiting times (in minutes) of customers at the Bank A, where customers enter a single waiting line that feeds three teller windows. Construct a 95% confidence interval for the population standard deviation σ.
+Also available on the same CSV file are the waiting times (in minutes) of customers at the Bank B, where customers may enter any one of three different lines that have formed at three teller windows. Construct a 95% confidence interval for the population standard deviation σ.
+Interpret the results found. Do the confidence intervals suggest a difference in the variation among waiting times? Which arrangement seems better: the single-line system or the multiple-line system?
+Assume that each sample is a simple random sample obtained from a population with a normal distribution.
+```{r Question 2}
+#Read data
+df <- read.csv("WaitingTimes_HW3.csv")
+#Get sample size and degree of freedom (95% confidence level)
+n <- length(df$BankA)
+d_f <- n-1
+#Compute sample standard deviations for BankA and BankB
+s_a <- sd(df$BankA)
+s_b <- sd(df$BankB)
+#Compute Chisquare critical values
+Xleft <- qchisq(0.025,d_f,lower.tail=TRUE)
+Xright <- qchisq(0.025,d_f,lower.tail=FALSE)
+#Compute the confidence interval bounds
+CI_lower <- round(sqrt((d_f*s_a^2)/Xright), digits = 2)
+CI_upper <- round(sqrt((d_f*s_a^2)/Xleft), digits = 2)
+CI_lower_b <- round(sqrt((d_f*s_b^2)/Xright), digits = 2)
+CI_upper_b <- round(sqrt((d_f*s_b^2)/Xleft), digits = 2)
+#Checking the mean of waiting times for both banks
+x_a <- mean(df$BankA)
+x_b <- mean(df$BankA)
+sprintf("95 percent Confidence Interval for the standard deviation of waiting time in BankA: (%s, %s) (minutes).", CI_lower, CI_upper)
+sprintf("95 percent Confidence Interval for the standard deviation of waiting time in BankB: (%s, %s) (minutes).", CI_lower_b, CI_upper_b)
+sprintf("The data reveals a noteworthy contrast in the standard deviations of waiting times between the two banks. Bank B exhibits a wider interval at the 95%% confidence level, indicating a higher level of variability in waiting times at Bank B. This increased variability could lead to customers experiencing more inconsistent waiting times.This observation strongly supports the single-line system as the superior choice. Both banks share the same sample mean waiting time of %.2f minutes. However, Bank A boasts a narrower interval for the standard deviation of waiting times, implying greater consistency in service. Therefore, the single-line system appears to offer a more favorable arrangement that would likely enhance overall customer satisfaction.", x_a)
+```
+<font size="5">Question 3</font>
+You wish to estimate, with 95% confidence, the population proportion of U.S. adults who think that the president can do a lot about the price of gasoline. Your estimate must be accurate within 4% of the true population proportion.
+a) No preliminary estimate is available. Find the minimum sample size needed.
+b) Find the minimum sample size needed, using a prior study that found that 35% of U.S. adults think the president can do a lot about the price of gasoline. (Source: CBS News/New York Times Poll)
+c) Compare the results from parts a) and b) above.
+```{r Question 3}
+#a) estimated proportion not know, assume p and q as 0.5
+p <- 0.5
+q <- 0.5
+#Margin of error given, compute z under 95% confidence level
+margin_of_error <- 0.04
+z <- qnorm(0.975)
+#Get minimum sample size for part a
+n_a <- ceiling((z/margin_of_error)^2*p*q)
+#p givien 0.35 for part b, repeat and get minimum sample size for part b
+p_b <- 0.35
+q_b <- 1-p_b
+n_b <- ceiling((z/margin_of_error)^2*p_b*q_b)
+sprintf("Minimum sample size needed for part a and part b are %.f and %.f respectively. From the formula employed to ascertain the minimum sample size, it becomes evident that when the proportion is unknown and we assume the value of p-hat to be 0.5, it yields the highest outcome for the product p*(1-p). Consequently, this leads to a more conservative estimate of the minimum sample size.In contrast, when we have prior knowledge of the proportion, as demonstrated in part b, the required sample size decreases.", n_a, n_b)
+```
+<font size="5">Question 4</font>
+
+Williamson University is a liberal arts university in the Southeastern U.S. that attempts to attract the highest-quality students, especially from its region of the country. It has gathered data on 178 applicants who were accepted by Williamson (a random sample from all acceptable applicants over the past several years). The data are in the CSV file Admissions. The variables are as follows:
+
+• Accepted: whether the applicant accepts Williamson’s offer to enroll
+
+• MainRival: whether the applicant enrolls at Williamson’s main rival university
+
+• HSClubs: number of high school clubs applicant served as an officer
+
+• HSSports: number of varsity letters applicant earned
+
+• HSGPA: applicant’s high school GPA
+
+• HSPctile: applicant’s percentile (in terms of GPA) in his or her graduating class
+
+• HSSize: number of students in applicant’s graduating class
+
+• SAT: applicant’s combined SAT score
+
+• Combined Score: a combined score for the applicant used by Williamson to rank applicants
+
+The derivation of the combined score is a closely kept secret by Williamson, but it is basically a weighted average of the various components of high school performance and SAT. Williamson is concerned that it is not getting enough of the best students, and worse yet, that many of these best students are going to Williamson’s main rival. Analyze the following parts and then, based on your analysis, comment on whether Williamson appears to have a legitimate concern.
+
+a) Calculate and interpret a 95% confidence interval for the proportion of all acceptable applicants who accept Williamson’s invitation to enroll. Do the same for all acceptable applicants with a combined score less than 330, with a combined score between 330 and 375, and then with a combined score greater than 375.
+
+b) Calculate and interpret a 95% confidence interval for the proportion of all acceptable students with a combined score less than the median who choose Williamson’s rival over Williamson. Do the same for those with a combined score greater than or equal to the median.
+
+c) Calculate and interpret 95% confidence intervals for the mean combined score, the mean high school GPA, and the mean SAT score of all acceptable students who accept Williamson’s invitation to enroll. Do the same for all acceptable students who choose to enroll elsewhere. Then calculate and interpret 95% confidence intervals for the differences between these means, where each difference is a mean for students enrolling at Williamson minus the similar mean for students enrolling elsewhere. Assume equal variances between the groups.
+
+d) Williamson is interested (as are most schools) in getting students who are involved in extracurricular activities (clubs and sports). Does it appear to be doing so? Calculate and interpret a 95% confidence interval for the proportion of all students who decide to enroll at Williamson who have been officers of at least two clubs. Calculate and interpret a similar confidence interval for those who have earned at least four varsity letters in sports.
+
+e) The combined score Williamson calculates for each student gives some advantage to students who rank highly in a large high school relative to those who rank highly in a small high school. Therefore, Williamson wonders whether it is relatively more successful in attracting students from large high schools than from small high schools. Calculate one or more confi- dence intervals for relevant parameters to shed some light on this issue. For this part, you are free to use your own judgement and criteria to decide what classifies a high school as large and small.
+
+```{r Question 4}
+#Read data
+df <- read.csv("Admissions.csv")
+#Count sample size and proportion for each condition
+samplesize <- length(df$Accepted.our.offer)
+num_accept <- sum(df$Accepted.our.offer == "Yes")
+num_less_330 <- sum(df$Combined.Score < 330)
+num_between <- sum(df$Combined.Score >= 330 & df$Combined.Score <= 375)
+num_greater_375 <- sum(df$Combined.Score > 375)
+p_all <- num_accept/samplesize
+p_less <- num_less_330/samplesize
+p_between <- num_between/samplesize
+p_greater <- num_greater_375/samplesize
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+samplesize*p_all >= 5
+samplesize*(1-p_all) >= 5
+samplesize*p_less >= 5
+samplesize*(1-p_less) >= 5
+samplesize*p_between >= 5
+samplesize*(1-p_between) >= 5
+samplesize*p_greater >= 5
+samplesize*(1-p_greater) >= 5
+#Creating a function to get intervals under 95% confidence level
+interval_95 <- function(p,n){
+  ME <- sqrt((p*(1-p))/n)
+  z <- qnorm(0.975)
+  l95 <- round(p-z*ME, digits = 4)
+  r95 <- round(p+z*ME, digits = 4)
+  sprintf("95 percent Confidence Interval: (%s, %s). INTERPRETATION: We might be 95 percent confident that the interval between %s and %s proportion contains the true population proportion.", l95, r95, l95, r95)
+}
+#Run function and print out interpretations
+sprintf("The 95 percent interval and interpretation for the proportion of all acceptable applicants who accept Williamson’s invitation to enroll are as follows.")
+interval_95(p_all,samplesize)
+sprintf("The 95 percent interval and interpretation for the proportion of all acceptable applicants with a combined score less than 330 are as follows.")
+interval_95(p_less,samplesize)
+sprintf("The 95 percent interval and interpretation for the proportion of all acceptable applicants with a combined score between 330 and 375 are as follows.")
+interval_95(p_between,samplesize)
+sprintf("The 95 percent interval and interpretation for the proportion of all acceptable applicants with a combined score greater than 375 are as follows.")
+interval_95(p_greater,samplesize)
+#Part b: Find the proportions under the given conditions
+med <- median(df$Combined.Score)
+n1 <- sum(df$Combined.Score < med)
+n2 <- sum(df$Combined.Score >= med)
+num_less <- sum(df$Combined.Score < med&df$Went.to.main.rival=="Yes")
+num_geq <- sum(df$Combined.Score >= med&df$Went.to.main.rival=="Yes")
+p_less <- num_less/n1
+p_geq <- num_geq/n2
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_less*n1>=5
+(1-p_less)*n1>=5
+p_geq*n2>=5
+(1-p_geq)*n2>=5
+#The proportion of students who have combined score lower than the median who chose Williamson's Rival did not pass the condition for large smaple sizes, use plus four estimators
+p_less <- (num_less+2)/(n1+4)
+#Check again for large sample size and success and failures>=5
+p_less*(n1+4)>=5
+(1-p_less)*(n1+4)>=5
+sprintf("The 95 percent interval and interpretation for the proportion of all acceptable applicants with a combined score less than the median who choose Williamson’s rival over Williamson are as follows.")
+interval_95(p_less,n1)
+sprintf("The 95 percent interval and interpretation for the proportion of all acceptable applicants with a combined score greater than or equal to the median who choose Williamson’s rival over Williamson are as follows.")
+interval_95(p_geq,n2)
+#Part c: Write a function to compute 95% confidence intervals for sample means, find the sample size for both conditions
+n_accept <- sum(df$Accepted.our.offer == "Yes")
+n_elsewhere <- length(df$Accepted.our.offer)-n_accept
+interval_95_mean <- function(x,n,s){
+  ME <- s/sqrt(n)
+  t <- qt(0.975,n-1)
+  l95 <- round(x-t*ME, digits = 2)
+  r95 <- round(x+t*ME, digits = 2)
+  sprintf("95 percent Confidence Interval: (%s, %s). INTERPRETATION: We might be 95 percent confident that the interval between %s and %s contains the true mean.", l95, r95, l95, r95)
+}
+#Calculate all means and all standard deviations
+mean_combine_1 <- mean(df[df$Accepted.our.offer=="Yes",]$Combined.Score)
+mean_hs_1 <- mean(df[df$Accepted.our.offer=="Yes",]$HS.GPA)
+mean_sat_1 <- mean(df[df$Accepted.our.offer=="Yes",]$SAT)
+mean_combine_2 <- mean(df[df$Accepted.our.offer=="No",]$Combined.Score)
+mean_hs_2 <- mean(df[df$Accepted.our.offer=="No",]$HS.GPA)
+mean_sat_2 <- mean(df[df$Accepted.our.offer=="No",]$SAT)
+s_combine_1 <- sd(df[df$Accepted.our.offer=="Yes",]$Combined.Score)
+s_hs_1 <- sd(df[df$Accepted.our.offer=="Yes",]$HS.GPA)
+s_sat_1 <- sd(df[df$Accepted.our.offer=="Yes",]$SAT)
+s_combine_2 <- sd(df[df$Accepted.our.offer=="No",]$Combined.Score)
+s_hs_2 <- sd(df[df$Accepted.our.offer=="No",]$HS.GPA)
+s_sat_2 <- sd(df[df$Accepted.our.offer=="No",]$SAT)
+#Print out all the intervals and interpretations
+sprintf("The 95 percent interval and interpretation for the mean combined score of all enrolled students are as follows.")
+interval_95_mean(mean_combine_1,n_accept,s_combine_1)
+sprintf("The 95 percent interval and interpretation for the mean high school GPA of all enrolled students are as follows.")
+interval_95_mean(mean_hs_1,n_accept,s_hs_1)
+sprintf("The 95 percent interval and interpretation for the mean SAT score of all enrolled students are as follows.")
+interval_95_mean(mean_sat_1,n_accept,s_sat_1)
+sprintf("The 95 percent interval and interpretation for the mean combined score of all students going elsewhere are as follows.")
+interval_95_mean(mean_combine_2,n_elsewhere,s_combine_2)
+sprintf("The 95 percent interval and interpretation for the mean high school GPA of all students going elsewhere are as follows.")
+interval_95_mean(mean_hs_2,n_elsewhere,s_hs_2)
+sprintf("The 95 percent interval and interpretation for the mean SAT score of all students going elsewhere are as follows.")
+interval_95_mean(mean_sat_2,n_elsewhere,s_sat_2)
+#Run t.test for each comparison
+test_1 <- t.test(df[df$Accepted.our.offer=="Yes",]$Combined.Score, df[df$Accepted.our.offer=="No",]$Combined.Score, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test_2 <- t.test(df[df$Accepted.our.offer=="Yes",]$HS.GPA, df[df$Accepted.our.offer=="No",]$HS.GPA, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test_3 <- t.test(df[df$Accepted.our.offer=="Yes",]$SAT, df[df$Accepted.our.offer=="No",]$SAT, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+#Print out the intervals for each differences and interpret
+sprintf("95 percent Confidence Interval of difference between combined scores: (%s, %s). INTERPRETATION: We might be 95 percent confident that the interval between %s and %s score contains the true difference.", round(test_1$conf.int[1],digits = 2), round(test_1$conf.int[2], digits=2), round(test_1$conf.int[1],digits=2), round(test_1$conf.int[2],digits=2))
+sprintf("95 percent Confidence Interval of difference between high school GPA scores: (%s, %s). INTERPRETATION: We might be 95 percent confident that the interval between %s and %s score contains the true difference.", round(test_2$conf.int[1],digits = 2), round(test_2$conf.int[2], digits=2), round(test_2$conf.int[1],digits=2), round(test_2$conf.int[2],digits=2))
+sprintf("95 percent Confidence Interval of difference between SAT scores: (%s, %s). INTERPRETATION: We might be 95 percent confident that the interval between %s and %s score contains the true difference.", round(test_3$conf.int[1],digits = 2), round(test_3$conf.int[2], digits=2), round(test_3$conf.int[1],digits=2), round(test_3$conf.int[2],digits=2))
+#Part d: Find the proportions
+p_club <- sum(df$Accepted.our.offer=="Yes" & df$HS.Clubs>=2)/n_accept
+p_sport <- sum(df$Accepted.our.offer=="Yes" & df$HS.Sports>=4)/n_accept
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_club*n_accept>=5
+(1-p_club)*n_accept>=5
+p_sport*n_accept>=5
+(1-p_sport)*n_accept>=5
+#Print out the intervals and interpretations
+sprintf("The 95 percent interval and interpretation for the proportion of all students who decide to enroll at Williamson who have been officers of at least two clubs are as follows.")
+interval_95(p_club,n_accept)
+sprintf("The 95 percent interval and interpretation for the proportion of all students who decide to enroll at Williamson who have earned at least four varsity letters in sports are as follows.")
+interval_95(p_sport,n_accept)
+#Comment on the findings
+sprintf("Observing the results, it is quite obvious that Williamson's is doing well at attracting students who are involved in extracurricular activities.")
+#Part e: Assess the school sizes data
+mean(df$HS.Size)
+fivenum(df$HS.Size)
+boxplot(df$HS.Size, horizontal=TRUE)
+#Assess the high school percentile data
+mean(df$HS.Percentile)
+fivenum(df$HS.Percentile)
+boxplot(df$HS.Percentile, horizontal=TRUE)
+#Choose medium of high school size to determine large and small high schools, choose Q3 to determine highly ranked students
+n_large <- sum(df$Accepted.our.offer=="Yes"&df$HS.Size>=282)
+n_small <- sum(df$Accepted.our.offer=="Yes"&df$HS.Size<282)
+num_large_rank <- sum(df$Accepted.our.offer=="Yes"&df$HS.Size>=282&df$HS.Percentile>=89.6)
+num_small_rank <- sum(df$Accepted.our.offer=="Yes"&df$HS.Size<282&df$HS.Percentile>=89.6)
+p_large_rank <- num_large_rank/n_large
+p_small_rank <- num_small_rank/n_small
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_large_rank*n_large>=5
+(1-p_large_rank)*n_large>=5
+p_small_rank*n_small>=5
+(1-p_small_rank)*n_small>=5
+#Compute each CI and print
+interval_95(p_large_rank,n_large)
+sprintf("We can see from the result, we are 95 percent confident that the interval between (0.15, 0.51) contains the proportion of students coming from larger highschools who rank highly.")
+interval_95(p_small_rank,n_small)
+sprintf("We can see from the result, we are 95 percent confident that the interval between (0.05, 0.35) contains the proportion of students coming from smaller highschools who rank highly.")
+#Use prop.test to check the difference between proportions and interpret
+y <- prop.test(c(num_large_rank, num_small_rank), c(n_large, n_small), alternative = "two.sided", conf.level = 0.95, correct = FALSE)
+LCL <- y$conf.int[1]
+UCL <- y$conf.int[2]
+sprintf("95 percent Confidence Interval of the difference of proportions: (%.4f, %.4f)", LCL, UCL)
+sprintf("From the results above, it is likely that Willaimson's does attract more highly ranked students from larger highschools than from smaller highschools.")
+```
+<font size="5">Question 5</font>
+
+The Yˇouhˇao Restaurant is a Chinese carryout/delivery restaurant. Most of Yˇouhˇao’s deliveries are within a 10-mile radius, but it occasionally delivers to customers more than 10 miles away. Yˇouhˇao employs a number of delivery people, four of whom are relatively new hires. The restaurant has recently been receiving customer complaints about excessively long delivery times. Therefore, Yˇouhˇao has collected data on a random sample of deliveries by its four new delivery people during the peak dinner time. The data are in the CSV file DeliveryTimes. The variables are as follows:
+
+• Deliverer: which person made the delivery
+
+• Prep Time: time (in minutes) from when order was placed until delivery person started driving it to the customer
+
+• Travel Time: time (in minutes) to drive from Yˇouhˇao to customer
+
+• Distance: distance (miles) from Yˇouhˇao to customer
+
+Analyze the following parts and then based on your analysis write the interpretations and recommendations.
+
+a) Yˇouhˇao is concerned that one or more of the new delivery people might be slower than others.
+
+(i) Let μDi and μTi be the mean delivery time and mean total time for delivery person i, where the total time is the sum of the delivery and prep times. Calculate and interpret 95% confidence intervals for each of these means for each delivery person. Although these might be interesting, give two reasons why they are not really fair measures for comparing the efficiency of the delivery people.
+
+(ii) Responding to the criticisms in part (i), calculate and interpret a 95% confidence interval for the mean speed of delivery for each delivery person, where speed is measured as miles per hour during the trip from Yˇouhˇao to the customer. Then calculate and interpret 95% confidence intervals for the mean difference in speed between each pair of delivery people. Assume equal variances between the groups.
+
+b) Yˇouhˇao would like to advertise that it can achieve a total delivery time of no more than M minutes for all customers within a 10-mile radius. On all orders that take more than M minutes, Yˇouhˇao will give the customers a $10 certificate on their next purchase.
+
+(i) Assuming for now that the delivery people in the sample are represen- tative of all of Yˇouhˇao’s delivery people, calculate and interpret a 95% confidence interval for the proportion of deliveries (within the 10-mile limit) that will be on time if M = 25 minutes; if M = 30 minutes; if M = 35 minutes.
+
+(ii) Suppose Yˇouhˇao makes 1000 deliveries within the 10-mile limit. For each of the values of M in part (i), calculate the range for the dollar amount of certificates it will have to pay for being late.
+
+c) The policy in the previous part is simple to state and simple to administer. However, it is somewhat unfair to customers who live close to Yˇouhˇao — they will never get $10 certificates. A fairer policy is the following. Yˇouhˇao first analyzes the data and finds that total delivery times can be predicted fairly well with the regression equation
+Predicted Delivery Time = 14.8 + 2.06Distance
+
+Also, most of these predictions are within 5 minutes of the actual delivery times. Therefore, whenever Yˇouhˇao receives an order over the phone, it looks up the customer’s address in its computerized geographical database to find distance, calculates the predicted delivery time based on this equation, rounds this to the nearest minute, adds 5 minutes, and guarantees this delivery time or else a $10 certificate. It does this for all customers, even those beyond the 10-mile limit.
+
+(i) Assuming again that the delivery people in the sample are representa- tive of all of Yˇouhaˇo’s delivery people, calculate and interpret a 95% confidence interval for the proportion of all deliveries that will be within the guaranteed total delivery time.
+
+(ii) Suppose Yˇouhˇao makes 1000 deliveries. Calculate the range for the dollar amount of certificates it will have to pay for being late.
+
+```{r Question 5}
+#Read data
+df <- read.csv("DeliveryTimes.csv")
+#Add a column of total time
+df$Total.Time <- df$Prep.Time+df$Travel.Time
+#Part a
+#Find the sample sizes for each deliverer
+n_1 <- sum(df$Deliverer=="1")
+n_2 <- sum(df$Deliverer=="2")
+n_3 <- sum(df$Deliverer=="3")
+n_4 <- sum(df$Deliverer=="4")
+#Find the mean and standard deviation of travel time for each deliverer
+xbar_d_1 <- mean(df[df$Deliverer =="1",]$Travel.Time)
+xbar_d_2 <- mean(df[df$Deliverer =="2",]$Travel.Time)
+xbar_d_3 <- mean(df[df$Deliverer =="3",]$Travel.Time)
+xbar_d_4 <- mean(df[df$Deliverer =="4",]$Travel.Time)
+s_d_1 <- sd(df[df$Deliverer =="1",]$Travel.Time)
+s_d_2 <- sd(df[df$Deliverer =="2",]$Travel.Time)
+s_d_3 <- sd(df[df$Deliverer =="3",]$Travel.Time)
+s_d_4 <- sd(df[df$Deliverer =="4",]$Travel.Time)
+#Find the mean and standard deviation of total time for each deliverer
+xbar_t_1 <- mean(df[df$Deliverer =="1",]$Total.Time)
+xbar_t_2 <- mean(df[df$Deliverer =="2",]$Total.Time)
+xbar_t_3 <- mean(df[df$Deliverer =="3",]$Total.Time)
+xbar_t_4 <- mean(df[df$Deliverer =="4",]$Total.Time)
+s_t_1 <- sd(df[df$Deliverer =="1",]$Total.Time)
+s_t_2 <- sd(df[df$Deliverer =="2",]$Total.Time)
+s_t_3 <- sd(df[df$Deliverer =="3",]$Total.Time)
+s_t_4 <- sd(df[df$Deliverer =="4",]$Total.Time)
+#Find each confidence interval
+sprintf("The 95%% confidence interval of travel time and total time for each deliveres are shown below, units are in minutes.")
+interval_95_mean(xbar_d_1,n_1,s_d_1)
+interval_95_mean(xbar_d_2,n_2,s_d_2)
+interval_95_mean(xbar_d_3,n_3,s_d_3)
+interval_95_mean(xbar_d_4,n_4,s_d_4)
+interval_95_mean(xbar_t_1,n_1,s_t_1)
+interval_95_mean(xbar_t_2,n_2,s_t_2)
+interval_95_mean(xbar_t_3,n_3,s_t_3)
+interval_95_mean(xbar_t_4,n_4,s_t_4)
+#Check statistics for each deliverers distance and analyze
+m1 <- mean(df[df$Deliverer=="1",]$Distance)
+boxplot(df[df$Deliverer=="1",]$Distance, horizontal = TRUE)
+hist(df[df$Deliverer=="1",]$Distance)
+fivenum(df[df$Deliverer=="1",]$Distance)
+m2 <- mean(df[df$Deliverer=="2",]$Distance)
+boxplot(df[df$Deliverer=="2",]$Distance, horizontal = TRUE)
+hist(df[df$Deliverer=="2",]$Distance)
+fivenum(df[df$Deliverer=="2",]$Distance)
+m3 <- mean(df[df$Deliverer=="3",]$Distance)
+boxplot(df[df$Deliverer=="3",]$Distance, horizontal = TRUE)
+hist(df[df$Deliverer=="3",]$Distance)
+fivenum(df[df$Deliverer=="3",]$Distance)
+m4 <- mean(df[df$Deliverer=="4",]$Distance)
+boxplot(df[df$Deliverer=="4",]$Distance, horizontal = TRUE)
+hist(df[df$Deliverer=="4",]$Distance)
+fivenum(df[df$Deliverer=="4",]$Distance)
+sprintf("Although interesting, the intervals above do not really have any significance because it only considers time, after you look at the distribution of the distances of each order, you can see that there is variation between deliverers, so a better way to analyze the data is to take both distance and time into consideration, which is suggested by the following question.")
+#Calculate speed of each order
+df$speed <- df$Distance/(df$Travel.Time/60)
+#Run t.test for each pair
+test12 <- t.test(df[df$Deliverer=="1",]$speed, df[df$Deliverer=="2",]$speed, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test13 <- t.test(df[df$Deliverer=="1",]$speed, df[df$Deliverer=="3",]$speed, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test14 <- t.test(df[df$Deliverer=="1",]$speed, df[df$Deliverer=="4",]$speed, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test23 <- t.test(df[df$Deliverer=="2",]$speed, df[df$Deliverer=="3",]$speed, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test24 <- t.test(df[df$Deliverer=="2",]$speed, df[df$Deliverer=="4",]$speed, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test34 <- t.test(df[df$Deliverer=="3",]$speed, df[df$Deliverer=="4",]$speed, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+#Print out the intervals for each differences and interpret
+sprintf("The 95%% confidence interval of difference between delivery speed for each pair of deliveres are shown below, units are miles per hour.")
+sprintf("95 percent Confidence Interval of difference between delivery speed of deliverer 1 & 2: (%.2f, %.2f) (miles per hour). INTERPRETATION: We might be 95 percent confident that the interval between %.2f(miles per hour) and %.2f(miles per hour) contains the true difference.",test12$conf.int[1],test12$conf.int[2], test12$conf.int[1], test12$conf.int[2])
+sprintf("95 percent Confidence Interval of difference between delivery speed of deliverer 1 & 3: (%.2f, %.2f) (miles per hour). INTERPRETATION: We might be 95 percent confident that the interval between %.2f(miles per hour) and %.2f(miles per hour) contains the true difference.",test13$conf.int[1],test13$conf.int[2], test13$conf.int[1], test13$conf.int[2])
+sprintf("95 percent Confidence Interval of difference between delivery speed of deliverer 1 & 4: (%.2f, %.2f) (miles per hour). INTERPRETATION: We might be 95 percent confident that the interval between %.2f(miles per hour) and %.2f(miles per hour) contains the true difference.",test14$conf.int[1],test14$conf.int[2], test14$conf.int[1], test14$conf.int[2])
+sprintf("95 percent Confidence Interval of difference between delivery speed of deliverer 2 & 3: (%.2f, %.2f) (miles per hour). INTERPRETATION: We might be 95 percent confident that the interval between %.2f(miles per hour) and %.2f(miles per hour) contains the true difference.",test23$conf.int[1],test23$conf.int[2], test23$conf.int[1], test23$conf.int[2])
+sprintf("95 percent Confidence Interval of difference between delivery speed of deliverer 2 & 4: (%.2f, %.2f) (miles per hour). INTERPRETATION: We might be 95 percent confident that the interval between %.2f(miles per hour) and %.2f(miles per hour) contains the true difference.",test24$conf.int[1],test24$conf.int[2], test24$conf.int[1], test24$conf.int[2])
+sprintf("95 percent Confidence Interval of difference between delivery speed of deliverer 3 & 4: (%.2f, %.2f) (miles per hour). INTERPRETATION: We might be 95 percent confident that the interval between %.2f(miles per hour) and %.2f(miles per hour) contains the true difference.",test34$conf.int[1],test34$conf.int[2], test34$conf.int[1], test34$conf.int[2])
+#Part b
+#Find the delivery orders that have a radius whitin 10 miles
+df_10_miles <- df[df$Distance<=10,]
+#Set the the M values
+M1 = 25
+M2 = 30
+M3 = 35
+#Get samplesize
+samplesize <- length(df_10_miles$Order)
+#Count proportions under each M
+p_25_10 <- sum(df_10_miles$Total.Time <= M1)/samplesize
+p_30_10 <- sum(df_10_miles$Total.Time <= M2)/samplesize
+p_35_10 <- sum(df_10_miles$Total.Time <= M3)/samplesize
+#Print the intervals and interpret
+sprintf("The 95%% confidence interval of the proportion of orders within 10 miles radius that will be complete within the given 25, 30, 35 (minutes) limit are shown below.")
+interval_95(p_25_10,samplesize)
+interval_95(p_30_10,samplesize)
+interval_95(p_35_10,samplesize)
+#Find the proportion of failure and find the intervals
+sprintf("The 95%% confidence interval of the proportion of orders within 10 miles radius that will NOT be complete within the given 25, 30, 35 (minutes) limit are shown below.")
+interval_95((1-p_25_10),samplesize)
+interval_95((1-p_30_10),samplesize)
+interval_95((1-p_35_10),samplesize)
+#Calculate the range for the dollar amount of certificates it will have to pay for being late
+sprintf("The range for the dollar amount of certificates the restaurant will have to pay under 95%% confidence level when M is 25 minutes is:($%.f,$%.f)",0.3064*1000*10,0.5508*1000*10)
+sprintf("The range for the dollar amount of certificates the restaurant will have to pay under 95%% confidence level when M is 30 minutes is:($%.f,$%.f)",0.1742*1000*10,0.3973*1000*10)
+sprintf("The range for the dollar amount of certificates the restaurant will have to pay under 95%% confidence level when M is 35 minutes is:($%.f,$%.f)",0.0685*1000*10,0.249*1000*10)
+#Part c
+#Use the formula given to compute the guaranteed delivery time
+df$Guaranteed.Time <- round(df$Distance*2.06+14.8)+5
+df$Witihin.Guaranteed <- ifelse(df$Total.Time<=df$Guaranteed.Time, 1, 0)
+n <- length(df$Order)
+p_within <- sum(df$Witihin.Guaranteed==1)/n
+sprintf("The 95%% confidence interval of the proportion of orders that will be completed within the guaranteed time(minutes) limit are shown below.")
+interval_95(p_within,n)
+sprintf("The 95%% confidence interval of the proportion of orders that will NOT be completed within the guaranteed time(minutes) limit are shown below.")
+interval_95((1-p_within),n)
+sprintf("The range for the dollar amount of certificates the restaurant will have to pay under 95%% confidence level based on each orders guaranteed time is:($%.f,$%.f)",0.0864*1000*10,0.2557*1000*10)
+```
+<font size="5">Question 6</font>
+
+A large courier company sends invoices to customers requesting payment within 30 days. Each bill lists an address, and customers are expected to use their own envelopes to return their payments. Currently, the mean amount of time taken to pay bills are 24 days. The chief financial officer (CFO) believes that including a stamped self-addressed (SSA) envelope would decrease the amount of time. She calculates that the improved cash flow from a 2-day decrease in the payment period would pay for the costs of the envelopes and stamps. Any further decrease in the payment period would generate a profit. To test her belief, she randomly selects 220 customers and includes an SSA envelope with their invoices. The numbers of days until payment is received were recorded on the CSV file SSA. Can the CFO conclude that the plan will be profitable? Make a decision using an appropriate level of significance. Choose a significance level by performing the Type I and Type II error analysis. Also please state your null and alternative hypotheses.
+$$H_0:\mu\ge22days\\H_1:\mu <22days$$
+```{r Question 6}
+#Type I error would lead to losses from costs from implementing the new plan
+#Type II error would lead to loss of potential gains
+#Read data
+df <- read.csv("SSA.csv")
+#Get sample size, mean, hypothesis and standard deviation
+n <- length(df$Payment)
+hyp <- 22
+mu <- 24
+s <- sd(df$Payment)
+#Create a list of alphas
+alphas <- c(0.01,0.05,0.1)
+#Run power t test and t test for each alphas
+for (i in alphas){
+  t <- pwr.t.test(n = n,d = (mu-hyp)/s,sig.level = i ,power = NULL, type = "one.sample",alternative = "less")
+  print(t)
+}
+for (i in alphas){
+t <- t.test(df$Payment, alternative = "less", mu = hyp, conf.level = 1-i)
+print(t)
+}
+sprintf("Comparing two types of error: Type I means losses from costs of implementing the new plan when it is not progitable, Type II error means loss on potential gains. Type I error should be more severe to the business as it has risk of actual losses. Hence we should try to avoid Type I error by choosing a smaller alpha. We choose alpha as 0.01")
+sprintf("After analysis, we can conclude that at 1%% significance level, there is not sufficient evidence to support the claim that the new plan would be profitable. And comparing p-value to alpha, we fail to reject the Null hypothesis, hence my decision would be NOT to implement the new plan to include SSA envelopes.")
+```
+<font size="5">Question 7</font>
+
+
+When an election for political office takes place, the television networks cancel regular programming and instead provide election coverage. When the ballots are counted, the results are reported. However, for important offices such as president or senator in large states, the networks actively compete to see which will be the first to predict a winner. This is done through exit polls, wherein a random sample of voters who exit the polling booth is asked for whom they voted. From the data, the sample proportion of voters supporting the candidates is computed. A statistical technique is applied to determine whether there is enough evidence to infer that the leading candidate will garner enough votes to win. Suppose that in the exit poll from the state of Florida during the 2000 year elections, the pollsters recorded only the votes of the two candidates who had any chance of winning, Democrat Albert Gore (code = 1) and Republican George W. Bush (code = 2). The polls close at 8:00 p.m. Can the networks conclude from these data that the Republican candidate will win the state? Should the network announce at 8:01 p.m. that the Republican candidate will win? Use a 10% significance level. Also please state your null and alternative hypotheses. Write your final interpretation. The dataset is available on the CSV file Elections.
+
+$$H_0:\widehat{p}\le0.5\\H_1:\widehat{p} >0.5$$
+```{r Question 7}
+#Read data, use significance level 0.1 to analyze
+df <- read.csv("Elections.csv")
+#Count republican votes
+num_rep <- sum(df$Votes =="2")
+#Run prop.test
+prop_t <- prop.test(num_rep,length(df$Votes),alternative = "greater", p=0.5)
+print(prop_t)
+#Print interpretation
+sprintf("The prop.test gives us the p-value = 0.04133, which is smaller than our alpha 0.1, we can conclude and make a decision to reject the Null hypothesis, and to claim that the Republican candidate will win the state of Florida. The network should announce at 8:01p.m. that the Republican candidate will win.")
+```
+<font size="5">Question 8</font>
+
+A study is performed in a large town to determine whether the average amount spent on food per four-person family in the town is significantly different from the national average. A random sample of the weekly grocery bills of four-person families in this town is given in the file GroceryBills. Assume the national average amount spent on food for a four-person family is $150.
+
+a) Identify the null and alternative hypotheses for this situation. Is the sample evidence statistically significant? If so, at what significance levels can you reject the null hypothesis?
+
+b) For which values of the test statistic, sample mean (i.e., average weekly grocery bill), would you reject the null hypothesis at the 1% significance level? For which values of the test statistic, sample mean, would you reject the null hypothesis at the 10% level?
+
+$$H_0:\mu=150dollars\\H_1:\mu \ne150dollars$$
+```{r Question 8}
+#Read data
+df <- read.csv("GroceryBills.csv")
+#Get sample mean and sd
+m <- 150
+s <- sd(df$Weekly_food_expense)
+x_bar <- mean(df$Weekly_food_expense)
+conf <- c(0.99,0.95,0.9)
+#Run t.test and analyze
+for (i in conf){
+    t <- t.test(df$Weekly_food_expense, alternative = "two.sided", mu = 150,conf.level=i)
+    print(t)
+}
+#Calculate critical values to test out the hypothesis
+for (i in conf){
+  cv_u <- m+qt(i+((1-i)/2),99)*(s/sqrt(100))
+  cv_l <- m-qt(i+((1-i)/2),99)*(s/sqrt(100))
+  print(cv_u)
+  print(cv_l)
+}
+#Print out interpretations
+sprintf("The sample evidence is statistically significant at 0.01, 0.05 and 0.1 significance level, we can reject the Null hypothesis at all three significance levels. Looking at the t.test results p-value, we can see that it also supports this view.")
+sprintf("At the 1%% significance level, we would reject test statistics that are either greater than 156.3 dollars or less than 143.4 dollars.")
+sprintf("At the 10%% significance level, we would reject test statistics that are either greater than 154 dollars or less than 146 dollars.")
+```
+<font size="5">Question 9</font>
+
+One important factor in inventory control is the variance of the daily demand for the product. An operations research analyst has developed the optimal order quantity and reorder point, assuming that the variance is equal to 250. Recently, the company has experienced some inventory problems, which induced the operations manager to doubt the assumption. To examine the problem, the manager took a sample of 25 days and recorded the demand. The data are provided on the Demand CSV file. Do these data provide sufficient evidence at the 5% significance level to infer that the operations research analyst’s assumption about the variance is wrong? Also please state your null and alternative hypotheses. Write your final interpretation.
+$$H_0:\sigma^2=250\\H_1:\sigma^2 \ne250$$
+```{r Question 9}
+#Read data
+df <- read.csv("Demand.csv")
+#Compute and determine statistics and hypothesis test
+var <- 250
+sample_var <- var(df$Demand)
+library(EnvStats)
+#Run var test, compute chi square value for the LCL, UCL
+varTest(df$Demand,alternative = "two.sided", sigma.squared = 250)
+chi_l <- qchisq(0.025,24,ncp=0)
+chi_r <- qchisq(0.025,24,ncp=0,lower.tail=FALSE)
+LCL <- 24*sample_var/chi_r
+UCL <- 24*sample_var/chi_l
+#Print interpretation
+sprintf("Based on these results, it appears that we do not have sufficient evidence to reject the null hypothesis at the 5%% significance level, that is we dont have sufficient evidence to infer that the operations research analyst’s assumption about the variance is wrong. The p-value is relatively high (0.3543839), which suggests that the data does not provide strong support for the alternative hypothesis that the true variance is greater than 250. Additionally, the 95%% confidence interval for the variance includes values lower & higher than 250, indicating that the variance could indeed be less than 250.")
+```
+<font size="5">Question 10</font>
+
+Approaching San Francisco International Airport (SFO) for landing, a British Airways flight from London Heathrow Airport (LHR) has been on hold for 45 minutes due to dense fog and inclement weather. The flight crew could declare an emergency and land immediately, but an FAA investigation will be launched and other flights might be endangered. The flight crew believes that there is enough fuel to stay aloft for 15 more minutes. Define Type I and Type II errors and identify the consequences of each type of error.
+$$H_0:Fuel\ge15minutes\\H_1:Fuel <15minutes$$
+```{r Question 10}
+sprintf("Type I error: False positive, the null hypothesis gets rejected when it is actually true, in this case the crew concludes that they do not have enough fuel to stay aloft for 15 more minutes when they actually do have enough fuel. Type I error may lead to unwanted cost of the FAA investigation and the risk of endagering other flights and the passengers on them.")
+sprintf("Type II error: False negative, failing to reject the null hypothesis when it is actually false, in this case the crew concludes that they do have enough fuel to stay aloft for 15 more minutes when they actually don't have enough fuel. Type II error may lead to immediate danger on the said plane, emergency landings when the unexpectely runs out and the risk of crashing, casting high risk for the passenger on the plane. Comparing two types of errors, it seems a Type II error is more severe than a Type I error.")
+```
+<font size="5">Question 11</font>
+
+Demand for systems analysts in the consulting industry is greater than ever. Graduates with a combination of business and software knowledge — some even from liberal arts programs — are getting great offers from consulting companies. Once these people are hired, they frequently switch from one company to another as competing companies lure them away with even better offers. One consulting company, BAY, has collected data on a sample of systems analysts with undergraduate degrees they hired several years ago. The data are in the file BAY. The variables are as follows:
+
+• Starting Salary: employee’s starting salary at BAY
+
+• On Road Pct: percentage of time employee has spent on the road with clients
+
+• State Univ: whether the employee graduated from State University (BAY’s principal source of recruits)
+
+• CIS Degree: whether the employee majored in Computer Information Systems (CIS) or a similar computer-related area
+
+• Stayed 3 Years: whether the employee stayed at least three years with BAY
+
+• Tenure: tenure of employee at BAY (months) if he or she moved before three years
+
+BAY is trying to learn everything it can about retention of these valuable employees. You can help by answering the following questions for BAY. Clearly write your interpretations and insights from the results.
+
+a) Although starting salaries are in a fairly narrow band, BAY wonders whether they have anything to do with retention.
+
+i Calculate a 95% confidence interval for the mean starting salary of all employees who stay at least three years with BAY. Calculate a 95% confidence interval for the mean starting salary of all employees who leave before three years. Then calculate a 95% confidence interval for the difference between these means. Assume equal variances.
+
+ii Among all employees whose starting salary is less than or equal to the median (37, 750), calculate a 95% confidence interval for the proportion who stay with BAY for at least three years. Among all employees with starting salaries above the median, calculate a 95% confidence interval for the proportion who stay with BAY for at least three years. Then calculate a 95% confidence interval for the difference between these proportions.
+
+b) BAY wonders whether the percentage of time on the road might influence who stays for at least 3 years and who leaves before 3 years. Repeat part a) i and a) ii, but now do the analysis in terms of (for the variable) percentage of time on the road rather than for the variable starting salary.
+
+c) Find a 95% confidence interval for the mean tenure (in months) of all em- ployees who leave BAY within three years of being hired. Why is it not possible with the given data to calculate a confidence interval for the mean tenure at BAY among all systems analysts who leave BAY after three years?
+
+d) State University’s students, particularly those in its nationally acclaimed CIS area, have traditionally been among the best of BAY’s recruits. But are they relatively hard to retain? Find the 95% confidence interval for proportion who stayed 3 years, broken down by whether they went to State University or not. What do you learn from these confidence intervals? Find the 95% confidence interval for proportion who stayed 3 years, broken down by whether they got a CIS degree or not. What do you learn from these confidence intervals?
+```{r Question 11}
+#Read data
+df <- read.csv("BAY.csv")
+#Check data
+str(df)
+#Calculating x bar, sd, and sample size for each
+xbar_geq_3 <- mean(df[is.na(df$Tenure),]$Starting.Salary)
+xbar_less_3 <- mean(df[!is.na(df$Tenure),]$Starting.Salary)
+s_geq_3 <- sd(df[is.na(df$Tenure),]$Starting.Salary)
+s_less_3 <- sd(df[!is.na(df$Tenure),]$Starting.Salary)
+n_geq_3 <- sum(is.na(df$Tenure))
+n_less_3 <- sum(!is.na(df$Tenure))
+#Calculate 95% CI for both
+sprintf("The 95%% confidence interval and interpretation of the mean starting salary of all employees who stay at least three years with BAY are shown below, units are in $.")
+interval_95_mean(xbar_geq_3, n_geq_3, s_geq_3)
+sprintf("The 95%% confidence interval and interpretation of the mean starting salary of all employees who leave before three years are shown below, units are in $.")
+interval_95_mean(xbar_less_3, n_less_3, s_less_3)
+#t.test for the 95% CI for difference
+test_diff_salary <- t.test(df[is.na(df$Tenure),]$Starting.Salary, df[!is.na(df$Tenure),]$Starting.Salary, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test_diff_salary
+#Print result and interpretation
+sprintf("95 percent Confidence Interval of difference between starting salary of employees who stay longer or equal to 3 years and the ones who stay less than 3 years: ($%.2f, $%.2f). INTERPRETATION: We might be 95 percent confident that the interval between $%.2f and $%.2f contains the true difference.",test_diff_salary$conf.int[1],test_diff_salary$conf.int[2], test_diff_salary$conf.int[1], test_diff_salary$conf.int[2])
+#Calculate proportions for employees whose starting salary is less than or equal to the median
+med <- 37750
+sample_leq_med <- sum(df$Starting.Salary<=med)
+num_leq_med  <- sum(df$Starting.Salary<=med & is.na(df$Tenure))
+p_leq_med <- num_leq_med/sample_leq_med
+sample_greater_med <- sum(df$Starting.Salary>med)
+num_greater_med <- sum(df$Starting.Salary>med & is.na(df$Tenure))
+p_greater_med <- num_greater_med/sample_greater_med
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_leq_med*sample_leq_med >=5
+(1-p_leq_med)*sample_leq_med >=5
+p_greater_med*sample_greater_med >= 5
+(1-p_greater_med)*sample_greater_med >= 5
+#Print out the 95% CI for both proportions
+sprintf("The 95 percent interval and interpretation for the proportion of all employees whose starting salary is less than or equal to the median who stay with BAY for at least three years are as follows.")
+interval_95(p_leq_med, sample_leq_med)
+sprintf("The 95 percent interval and interpretation for the proportion of all employees whose starting salary is greater than the median who stay with BAY for at least three years are as follows.")
+interval_95(p_greater_med, sample_greater_med)
+sprintf("Looking at the CIs, we can see that under 95%% confidence level, the proportion of employees who have a starting salary <= the median who stay at least 3 years is more than likely greater than the proportion of employees who have a starting salary > the median who stay at least three years.")
+#Use prop.test to check the difference between proportions and interpret
+y <- prop.test(c(num_leq_med, num_greater_med), c(sample_leq_med, sample_greater_med), alternative = "two.sided", conf.level = 0.95, correct = FALSE)
+LCL <- y$conf.int[1]
+UCL <- y$conf.int[2]
+#Print interpretations and insights
+sprintf("95 percent Confidence Interval of the difference of proportions: (%.4f, %.4f)", LCL, UCL)
+sprintf("From the results above, we can say that under 95%% confidence level we are quite certain that the proportion of employees who have a starting salary <= the median who stay at least 3 years is slightly greater than the proportion of employees who have a starting salary > the median who stay at least three years. We can then conclude from the results that starting salary has little to do with retention.")
+#Part b
+#Clean the % sign
+df$On.Road.Pct <- as.numeric(gsub("\\%","",df$On.Road.Pct))
+#Check data frame
+str(df)
+#Calculating x bar and sd for each
+xbar_geq_3_road <- mean(df[is.na(df$Tenure),]$On.Road.Pct)
+xbar_less_3_road <- mean(df[!is.na(df$Tenure),]$On.Road.Pct)
+s_geq_3_road <- sd(df[is.na(df$Tenure),]$On.Road.Pct)
+s_less_3_road <- sd(df[!is.na(df$Tenure),]$On.Road.Pct)
+#Calculate 95% CI for both
+sprintf("The 95%% confidence interval and interpretation of the mean percentage of time spent on the road with clients of all employees who stay at least three years with BAY are shown below, units are in %%.")
+interval_95_mean(xbar_geq_3_road, n_geq_3, s_geq_3_road)
+sprintf("The 95%% confidence interval and interpretation of the mean percentage of time spent on the road with clients of all employees who leave before three years are shown below, units are in %%.")
+interval_95_mean(xbar_less_3_road, n_less_3, s_less_3_road)
+#t.test for the 95% CI for difference
+test_diff_road <- t.test(df[is.na(df$Tenure),]$On.Road.Pct, df[!is.na(df$Tenure),]$On.Road.Pct, var.equal = TRUE, paired = FALSE, conf.level = 0.95)
+test_diff_road
+#Print result and interpretation
+sprintf("95 percent Confidence Interval of difference between the mean of percentage spent on the road with clients of employees who stay longer or equal to 3 years and the ones who stay less than 3 years: (%.2f%%, %.2f%%). INTERPRETATION: We might be 95 percent confident that the interval between %.2f%% and %.2f%% contains the true difference.",test_diff_road$conf.int[1],test_diff_road$conf.int[2], test_diff_road$conf.int[1], test_diff_road$conf.int[2])
+#Count median and proportions
+med_road <- median(df$On.Road.Pct)
+sample_leq_med_road <- sum(df$On.Road.Pct<=med_road)
+num_leq_med_road  <- sum(df$On.Road.Pct<=med_road & is.na(df$Tenure))
+p_leq_med_road <- num_leq_med_road/sample_leq_med_road
+sample_greater_med_road <- sum(df$On.Road.Pct>med_road)
+num_greater_med_road <- sum(df$On.Road.Pct>med_road & is.na(df$Tenure))
+p_greater_med_road <- num_greater_med_road/sample_greater_med_road
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_leq_med_road*sample_leq_med_road >=5
+(1-p_leq_med_road)*sample_leq_med_road >=5
+p_greater_med_road*sample_greater_med_road >= 5
+(1-p_greater_med_road)*sample_greater_med_road >= 5
+#Print out the 95% CI for both proportions
+sprintf("The 95 percent interval and interpretation for the proportion of all employees whose percentage of time spent on the road with clients are less than or equal to the median who stay with BAY for at least three years are as follows.")
+interval_95(p_leq_med_road, sample_leq_med_road)
+sprintf("The 95 percent interval and interpretation for the proportion of all employees whose percentage of time spent on the road with clients are greater than the median who stay with BAY for at least three years are as follows.")
+interval_95(p_greater_med_road, sample_greater_med_road)
+sprintf("Looking at the CIs, we can see that under 95%% confidence level, the proportion of employees who has a percentage of time spent on the road with clients <= the median who stay at least 3 years is more than likely greater than the proportion of employees who has a percentage of time spent on the road with clients > the median who stay at least three years.")
+#Use prop.test to check the difference between proportions and interpret
+y <- prop.test(c(num_leq_med_road, num_greater_med_road), c(sample_leq_med_road, sample_greater_med_road), alternative = "two.sided", conf.level = 0.95, correct = FALSE)
+LCL <- y$conf.int[1]
+UCL <- y$conf.int[2]
+#Print interpretations and insights
+sprintf("95 percent Confidence Interval of the difference of proportions: (%.4f, %.4f)", LCL, UCL)
+sprintf("From the results above, we can say that under 95%% confidence level we are quite certain that the proportion of employees who have a percentage of time spent on the road with clients <= the median who stay at least 3 years is greater than the proportion of employees who have a percentage of time spent on the road with clients > the median who stay at least three years. We can then conclude from the results that it is somewhat possible that the percentage of time spent on the road with clients might have a negative effect on retention.")
+#Part c, calculate mean, standard deviation, and CI
+xbar_tenure <- mean(df[df$Stayed.3.Years == "No",]$Tenure)
+s_tenure <- sd(df[df$Stayed.3.Years == "No",]$Tenure)
+#Print interpretations
+sprintf("The 95%% confidence interval and interpretation for the mean tenure (in months) of all employees who leave BAY within three years of being hired are as follows. Units are in months")
+interval_95_mean(xbar_tenure, n_less_3, s_tenure)
+sprintf("From the CI results, we can assume that employees leaving before 3 years tend to leave the job around 1 year and 1.5 years, it would be logical for BAY to focus on retaining employees who are reaching that range of tenure, compensation packages and career plans for these employees seems like a good way to start.")
+sprintf("It is not possible with the given data to calculate a confidence interval for the mean tenure at BAY among all systems analysts who leave BAY after three years because there is no data of tenures for the employees who stay longer or equal to three years.")
+#Part d, compute the proportions
+num_state <- sum(df$State.Univ=="Yes" & df$Stayed.3.Years == "Yes")
+p_state <- num_state/n_geq_3
+num_cis <- sum(df$CIS.Degree=="Yes" & df$Stayed.3.Years == "Yes")
+p_cis <- num_cis/n_geq_3
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_state*n_geq_3>=5
+(1-p_state)*n_geq_3>=5
+p_cis*n_geq_3>=5
+(1-p_cis)*n_geq_3>=5
+#Print and interpret
+sprintf("The 95 percent interval and interpretation for the proportion of all employees who went to State University who stayed with BAY for at least three years are as follows.")
+interval_95(p_state,n_geq_3)
+sprintf("The 95 percent interval and interpretation for the proportion of all employees who did not went to State University who stayed with BAY for at least three years are as follows.")
+interval_95((1-p_state),n_geq_3)
+sprintf("From the results above, we can say that under 95%% confidence level we are quite certain that it is relatively harder to retain employees who went to State University.")
+sprintf("The 95 percent interval and interpretation for the proportion of all employees who has a CIS degree who stayed with BAY for at least three years are as follows.")
+interval_95(p_cis,n_geq_3)
+sprintf("The 95 percent interval and interpretation for the proportion of all employees who does not have a CIS degree who stayed with BAY for at least three years are as follows.")
+interval_95((1-p_cis),n_geq_3)
+sprintf("From the results above, we can say that under 95%% confidence level we are quite certain that it is relatively easier to retain employees who has a CSI degree.")
+#Use prop.test to check the difference between proportions and interpret
+y <- prop.test(c(num_state, num_cis), c(n_geq_3, n_geq_3), alternative = "two.sided", conf.level = 0.95, correct = FALSE)
+LCL <- y$conf.int[1]
+UCL <- y$conf.int[2]
+#Print interpretations and insights
+sprintf("95 percent Confidence Interval of the difference of proportions: (%.4f, %.4f)", LCL, UCL)
+sprintf("From the results above, we can say that under 95%% confidence level we are quite certain that for BAY it is harder to retain employees who went to State University than to retain those who have a CSI degree.")
+```
+<font size="5">Question 12</font>
+
+A study involving hypothesis testing is conducted in a major hospital to understand the proportion of mothers who stay for less than two days in the hospital after delivery. A sample of 50 births is taken to test whether more than half of all mothers have a length of stay (LOS) of less than two days. Use α = 0.10. If the true proportion of mothers who have an LOS of two days is 0.60, what is the power of the test? What sample size is needed to attain an 80% power?
+
+$$H_0:\widehat{p}\le0.5\\H_1:\widehat{p} >0.5$$
+```{r Question 12}
+#Determine statistics
+n <- 50
+alpha <- 0.1
+true_p <- 0.6
+#Run first power test, power unknown
+power_test_1 <- pwr.p.test(h = ES.h(p1 = 0.6, p2 = 0.5),sig.level = alpha,power = NULL,alternative = "greater", n=n)
+power <- round(power_test_1$power, digits = 4)
+#Run second power test, sample size unknown
+power_test_2 <- pwr.p.test(h = ES.h(p1 = 0.6, p2 = 0.5),sig.level = alpha,power = 0.8,alternative = "greater", n=NULL)
+sample <- ceiling(power_test_2$n)
+#Print interpretations
+sprintf("The power of the test of whether more than half of all mothers have a LOS of less than two days given the sample size 50 and significance level 0.1 is %.2f.", power)
+sprintf("To attain an 80%% power on the same test, we need a minimum sample size of %.f", sample)
+```
+<font size="5">Question 13</font>
+
+Major consulting firms such as Accenture, Ernst & Young Consulting, and Deloitte & Touche Consulting employ statistical analysis to assess the effectiveness of the systems they design for their customers. In this case a consulting firm has developed an electronic billing system for a trucking company in the City of Stockton. The system sends invoices electronically to each customer’s computer and allows customers to easily check and correct errors. It is hoped that the new billing system will substantially reduce the amount of time it takes customers to make payments. Typical payment times—measured from the date on an invoice to the date payment is received—using the trucking company’s old billing system had been 39 days or more. This exceeded the industry standard payment time of 30 days.
+The new billing system does not automatically compute the payment time for each invoice because there is no continuing need for this information. The management consulting firm believes that the new system will reduce the mean bill payment time by more than 50 percent. The mean payment time using the old billing system was approximately equal to, but no less than, 39 days. Therefore, if μ denotes the new mean payment time, the consulting firm believes that μ will be less than 19.5 days. Therefore, in order to assess the system’s effectiveness (whether μ < 19.5 days), the consulting firm selects a random sample of 65 invoices from the 7,823 invoices processed during the first three months of the new system’s operation. Whereas this is the first time that the consulting company has installed an electronic billing system in a trucking company, the firm has installed electronic billing systems in other types of companies. Analysis of results from these other companies show that, although the population mean payment time varies from company to company, the population standard deviation of payment times is the same for different companies and equals 4.2 days. The payment times for the 65 sample invoices are manually determined and are given in the CSV file named PaymentTimes. If this sample can be used to establish that the new billing system substantially reduces payment times, the consulting firm plans to market the system to other trucking firms.
+Answer the following questions pertaining to the situation above
+
+a) Assuming that the standard deviation of the payment times for all payments is 4.2 days, construct a 95% confidence interval estimate to determine whether the new billing system was effective. State whether or not the billing system was effective.
+
+b) Using the 99% confidence interval, can we be 99% confident that the billing system was effective?
+
+c) If the population mean payment time is 19.5 days, what is the probability of observing a sample mean payment time of 65 invoices less than 18.1077 days?
+
+$$H_0:\mu\ge19.5days\\H_1:\mu <19.5days$$
+```{r Question 13}
+#Read data
+df <- read.csv("PaymentTimes.csv")
+#Determine parameters and test statistics
+n <- 65
+xbar <- mean(df$PayTime)
+sigma <- 4.2
+ME <- sigma/sqrt(n)
+z <- qnorm(0.975)
+#Find the CI
+l95 <- round(xbar-z*ME, digits = 2)
+r95 <- round(xbar+z*ME, digits = 2)
+#Print and interpret
+sprintf("95 percent Confidence Interval: (%s, %s). INTERPRETATION: We might be 95 percent confident that the interval between %s and %s contains the true mean.", l95, r95, l95, r95)
+sprintf("Under 95%% confidence level, the UCL is lower than 19.5 days, this means under 95%% confidence level, the mean is contained in an interval which is below the test 19.5 days, we can say that the billing system was indeed effective.")
+#Part b, find the z for 99% confidence level
+z <- qnorm(0.995)
+#Find the CI
+l95 <- round(xbar-z*ME, digits = 2)
+r95 <- round(xbar+z*ME, digits = 2)
+#Print and interpret
+sprintf("95 percent Confidence Interval: (%s, %s). INTERPRETATION: We might be 99 percent confident that the interval between %s and %s contains the true mean.", l95, r95, l95, r95)
+sprintf("Under 99%% confidence level, the UCL is lower than 19.5 days, this means under 99%% confidence level, the mean is contained in an interval which is below the test 19.5 days, we can say that the billing system was indeed effective.")
+#Part c, count probability with the given statistics and parameters
+prob <- round(pnorm(18.1077, mean = 19.5, sd = sigma/sqrt(65))*100, digits=4)
+sprintf("If the population mean payment time is 19.5 days, the probability of observing a sample mean payment time of 65 invoices less than 18.1077 days is %.4f%%.", prob)
+```
+<font size="5>Question 14</font>
+
+A television network decides to cancel one of its shows if it is convinced that less than 14% of the viewing public are watching this show.
+
+a) If a random sample of 1500 households with televisions is selected, what sample proportion values will lead to this show’s cancellation, assuming a 5% significance level?
+b) What is the probability that this show will be cancelled if 13.4% of all viewing households are watching it? That is, what is the probability that a sample will lead to rejection of the null hypothesis? You can assume that 13.4% is the population proportion (even though it wouldn’t be known to the network).
+$$H_0:\widehat{p}\ge0.14\\H_1:\widehat{p} <0.14$$
+```{r Question 14}
+#Find the critical value
+critical <- qnorm(0.05,0.14,sqrt((0.14*(1-0.14))/(1500)),lower.tail=TRUE)
+sprintf("A sample proportion value lower than or equal to the critical value %.4f will lead to this show's cancellation under 5%% significance level.", critical)
+#Partb, find the probability
+prob <- round(pnorm(critical,mean = 0.134,sd=sqrt((0.134*(1-0.134))/1500))*100,digits = 2)
+sprintf("The probability that this show will be cancelled if 13.4%% of all viewing households are watching it is %.2f%%.", prob)
+```
+<font size="5">Question 15</font>
+A federal funding program is available to low-income neighborhoods. To qualify for the funding, a neighborhood must have a mean household income of less than $15,000 per year. Neighborhoods with mean annual household income of $15,000 or more do not qualify. Funding decisions are based on a sample of residents in the neighborhood. A hypothesis test with a 0.02 level of significance is conducted. If the funding guidelines call for a maximum probability of 0.05 of not funding a neighborhood with a mean annual household income of $14,000, what sample size should be used in the funding decision study? Use standard deviation of $4000 as a planning value.
+$$H_0:\mu\ge15,000dollars\\H_1:\mu <15,000dollars$$
+```{r Question 15}
+#Define statistics
+alpha <- 0.02
+beta <- 0.05
+#Run z test
+test <- pwr.norm.test(n = NULL,d = -1000/4000,sig.level = alpha, power = 1-beta, alternative = "less")
+#Get minimum sample size
+sample <- ceiling(test$n)
+sprintf("A sample size of %.f should be used in the funding decision study.", sample)
+```
+<font size="5">Question 16</font>
+A production line operation is tested for filling weight accuracy using the following hypotheses.
+Hypothesis:
+$$H_0:\mu=16ounces\\H_1:\mu \ne16ounces$$
+Conclusion and Decision
+Filling okay; continue the operation
+Filling off-standard; stop and adjust the machine
+The sample size is 30 and the population standard deviation is σ = 0.8. Use α =0.05. In plain English, what does the Type II error mean in this situation? What is the probability of committing a Type II error when the machine is overfilling by 0.5 ounces? Using R, draw the power curve for this hypothesis test. What information does the power curve contain for the production manager? For the purposes of this question, you should not use any form of t-test or t-distribution since the population standard deviation is known.
+```{r Question 16}
+#Type II error means you continue the operation when the filling is actually off-standard
+test <- pwr.norm.test(d=0.5/0.8,n=30,sig.level = 0.05, power=NULL, alternative="two.sided")
+beta <- 1-test$power
+sprintf("A Type II error in this situation means that you continue the operation and fail to reject the null hypothesis when the filling is actually off-standard, which means lower quality on the products sold to customers, which may lead to complaints, lawsuits or fines.")
+sprintf("The probability of committin a Type II error when the machine is overfilling by 0.5 ounces is %.2f%%.",beta*100)
+#Create a sequence of true means by steps of 0.1
+truemean <- seq(14,18,by=0.1)
+#Create blank dataframe for later use
+powers <- data.frame(matrix(nrow=41,ncol=1))
+#Closing the scientific notations
+options(scipen=999)
+#For loop to calculate each true mean's corresponding powers
+for (i in (1:41)){
+  test <- pwr.norm.test(d=((i-1)*0.1+14-16)/0.8,n=30,sig.level = 0.05, power=NULL, alternative="two.sided")
+  powers[i,] <- test$power
+}
+#Append truemeans to the df and adjust column names
+powers$truemean <- truemean
+colnames(powers)[1] <- "Powers"
+#Plot the power curve
+plot(powers$truemean,powers$Powers,type='b',main="Power vs True mean", xlab="True Mean", ylab="Power of the tests", col="skyblue4", pch= 19, cex=0.5)+grid(lty = 2, col = "gray")
+sprintf("From the power curve, it becomes evident that any true mean deviating by 0.4 ounces or more from the hypothesized mean in either direction exhibits a notably robust power, exceeding 0.78. This high power indicates strong evidence in favor of the alternative hypothesis, effectively supporting the assertion that the machine is operating outside of the expected standard. Consequently, this information aids the production manager in understanding the test's sensitivity. In simpler terms, any fillings that deviate by 0.4 ounces or more from the hypothesized mean are highly likely to be detected, leading to the rejection of the null hypothesis, which suggests that the machine is functioning correctly.")
+```
+<font size="5">Question 17</font>
+
+In the class lecture, when we covered the left-tailed test, we saw an example where we assessed whether there was a reduction in expenditures on personal healthcare in 2023 compared to prior years. In a prior year, Americans paid an average of $9,415 per year on personal healthcare. An investigator sampled 100 Americans and found that they spent a mean of $9,290 on personal health care with a standard deviation of $890. The test failed to reject the null hypothesis (based on the critical-value approach we saw). The investigator is concerned that the sample size was too small. How many participants are needed to attain 80% power to detect a difference of $150 in expenditures (a difference the investigator feels is meaningful)? Use a two-sided test with a 5% level of significance.
+$$H_0:\mu\ge9415dollars\\H_1:\mu <9415dollars$$
+```{r Question 17}
+#Run pwt.t.test with n unknown
+test <- pwr.t.test(n = NULL,d = (150)/890,sig.level = 0.05 ,power = 0.8, type = "one.sample",alternative = "two.sided")
+#Round up sample size
+sample <- ceiling(test$n)
+sprintf("The participants needed (sample size) to attain 80%% power to detect a difference of $150 in expenditures given a 5%% significance level is %.f.", sample)
+```
