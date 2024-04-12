@@ -1,0 +1,442 @@
+---
+title: "HW4 BAX400-01"
+author: "Ian Chen"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("PASWR2")
+install.packages("PASWR")
+install.packages("readxl")
+install.packages("lubridate")
+install.packages("psych")
+install.packages("car")
+install.packages("tidyr")
+```
+<font size="5">Question 1</font>
+
+Testing Eli Lilly’s Latest Drug Evacetrapib
+The National Center for Health Statistics provided the following list of the top 10 killers in the United States and the numbers it killed in one of the prior years.
+Heart disease: 614,348
+Cancer: 591,699
+Chronic lower respiratory diseases: 147,101
+Accidents (unintentional injuries): 136,053
+Stroke (cerebrovascular diseases): 133,103 Alzheimer’s disease: 93,541
+Diabetes: 76,488
+Influenza and pneumonia: 55,227
+Nephritis, nephrotic syndrome, and nephrosis: 48,146 Intentional self-harm (suicide): 42,773
+Source: Health United States, 2015, table 19.
+Not surprisingly, virtually every drug manufacturer is constantly looking for drugs to reduce any of the diseases on the list, with particular emphasis on the heart disease and stroke, killers 1 and 5. After spending a decade on the development of Evacetrapib, a drug was designed to reduce bad cholesterol and increase good cholesterol. Here is a brief summary of the problem.
+Cholesterol can’t dissolve in the blood. It must be transported through your bloodstream by carriers called lipoproteins, which got their name because they’re made of fat (lipid) and proteins.
+The two types of lipoproteins that carry cholesterol to and from cells are low-density lipoprotein, or LDL, and high-density lipoprotein, or HDL. LDL cholesterol and HDL cholesterol, along with one-fifth of your triglyceride level, make up your total cholesterol count, which can be determined through a blood test.
+LDL cholesterol is considered the “bad” cholesterol because it contributes to plaque, a thick, hard deposit that can clog arteries and make them less flexible. This condition is known as atherosclerosis. If a clot forms and blocks a narrowed artery, heart attack or stroke can result. Another condition called peripheral artery disease can develop when plaque buildup narrows an artery supplying blood to the legs.
+HDL cholesterol is considered “good” cholesterol because it helps remove LDL cholesterol from the arteries. Experts believe HDL acts as a scavenger, carrying LDL cholesterol away from the arteries and back to the liver, where it is broken down and passed from the body. one-fourth to one-third of blood cholesterol is carried by HDL. A healthy level of HDL cholesterol may also protect against heart attack and stroke, while low levels of HDL cholesterol have been shown to increase the risk of heart disease.
+When pharmaceutical companies develop a new drug it is tested extensively. The final stage of the testing protocol is actual patients.
+A random sample of adult volunteers was divided so that one half took the drug and the other half took a placebo, so that neither the physician nor the volunteer knew which they were taking. The researchers tracked the results of the study and recorded the following for the drug group and the placebo group.
+LDL before the study
+LDL after the study
+HDL before the study
+HDL after the study Heart attack occurred (0 = no heart attack, 1 = heart attack)
+Stroke (0 = no stroke, 1 stroke) Death (0 = alive, 1 = died)
+Conduct statistical tests to answer the following questions. The data set is on the Excel file Evacetrapib. a) Does the drug reduce LDL?
+b) Does the drug increase HDL?
+c) What do the data on the placebo before and after LDL and HDL tell you about the experiment?
+d) Does the drug reduce heart attacks? e) Does the drug reduce strokes?
+2
+f) Does the drug reduce the death rate?
+g) What do these results tell you about the drug?
+$$H_0:\mu_{1}-\mu_{2}\le0\\H_1:\mu_{1}-\mu_{2}>0$$
+<font size="3">or</font>
+$$H_0:\mu_{D}\le0\\H_1:\mu_{D}>0$$
+
+```{r Question 1 part a}
+#Read data
+library("readxl")
+df <- read_excel("Evacetrapib.xlsx")
+#Check colnames and dataframe
+colnames(df)
+str(df)
+#Check for NAs
+colSums(is.na(df))
+#Subset the df into two parts, one with data on volunteers taking the drug another taking the placebo
+df_drug <- df[,1:7]
+df_placebo <- df[,8:14]
+#Check NAs again
+colSums(is.na(df_drug))
+colSums(is.na(df_placebo))
+#Drop the Placebo Death Column
+df_placebo <- df_placebo[,-7]
+#Drop NAs for the placebo table
+df_placebo <- na.omit(df_placebo)
+colSums(is.na(df_placebo))
+#Part a: Create columns that show the difference of LDL for both the volunteers who took the drug and placebo
+df_drug$`Drug LDL Diff` <- (df_drug$`Drug LDL Before`-df_drug$`Drug LDL After`)
+df_placebo$`Placebo LDL Diff` <- (df_placebo$`Placebo LDL Before`-df_placebo$`Placebo LDL After`)
+#We want to run a t.test for Independent samples (Volunteers who took the drug and volunteers who took the placebo), we have to check variance first
+var.test(df_drug$`Drug LDL Diff`, df_placebo$`Placebo LDL Diff`, ratio = 1, alternative = "two.sided")
+#Small p value means under 95% confidence level we reject the Null that variance are equal, run t.test accordingly
+t.test(df_drug$`Drug LDL Diff`, df_placebo$`Placebo LDL Diff`, alternative = "greater", mu = 0, paired = FALSE, var.equal=FALSE)
+#Run a paired t.test for the volunteers who took the drug
+t.test(df_drug$`Drug LDL Before`, df_drug$`Drug LDL After`, alternative = "greater", mu = 0, paired = TRUE)
+#Print answer and interpret
+sprintf("Under 0.05 significance level, we have enough evidence to believe that the drug does indeed reduce LDL.")
+```
+$$H_0:\mu_{1}-\mu_{2}\ge0\\H_1:\mu_{1}-\mu_{2}<0$$
+<font size="3">or</font>
+$$H_0:\mu_{D}\ge0\\H_1:\mu_{D}<0$$
+```{r Question 1 part b}
+#Part b: Create columns that show the difference of HDL for both the volunteers who took the drug and placebo
+df_drug$`Drug HDL Diff` <- (df_drug$`Drug HDL Before`-df_drug$`Drug HDL After`)
+df_placebo$`Placebo HDL Diff` <- (df_placebo$`PLacebo HDL Before`-df_placebo$`PLacebo HDL After`)
+#We want to run a t.test for Independent samples (Volunteers who took the drug and volunteers who took the placebo), we have to check variance first
+var.test(df_drug$`Drug HDL Diff`, df_placebo$`Placebo HDL Diff`, ratio = 1, alternative = "two.sided")
+#Small p value means under 95% confidence level we reject the Null that variance are equal, run t.test accordingly
+t.test(df_drug$`Drug HDL Diff`, df_placebo$`Placebo HDL Diff`, alternative = "less", mu = 0, paired = FALSE, var.equal=FALSE)
+#Run a paired t.test for the volunteers who took the drug
+t.test(df_drug$`Drug HDL Before`, df_drug$`Drug HDL After`, alternative = "less", mu = 0, paired = TRUE)
+#Print answer and interpret
+sprintf("Under 0.05 significance level, we have enough evidence to believe that the drug does indeed increase HDL.")
+```
+For LDL and HDL, both test if differences exist in pairs
+$$H_0:\mu_{D}=0\\H_1:\mu_{D}\ne0$$
+```{r Question 1 part c}
+#Part c: Run paired t.test for volunteers who took the placebo
+t.test(df_placebo$`Placebo LDL Before`, df_placebo$`Placebo LDL After`, alternative = "two.sided", mu = 0, paired = TRUE)
+t.test(df_placebo$`PLacebo HDL Before`, df_placebo$`PLacebo HDL After`, alternative = "two.sided", mu = 0, paired = TRUE)
+#High p value means under 0.05 significance level, we don't have sufficient evidence to reject the null hypothesis, hence no difference
+#Print answer and interpret
+sprintf("Under 0.05 significance level, we do not have sufficient evidence to say that there is a difference between before and after placebos for both LDL and HDL.")
+```
+$$H_0:p_{1}-p_{2}\ge0\\H_1:p_{1}-p_{2}<0$$
+```{r Question 1 part d}
+#Calculate proportions of volunteers who had heart attacks for drug takers and placebo takers, and run a proportion test
+num_heart_drug <- sum(df_drug$`Drug Heart attack`=="1")
+num_heart_placebo <- sum(df_placebo$`Placebo Heart attack`=="1")
+n_drug <- length(df_drug$`Drug Heart attack`)
+n_placebo <- length(df_placebo$`Placebo Heart attack`)
+p_heart_drug <- num_heart_drug/n_drug
+p_heart_placebo <- num_heart_placebo/n_drug
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_heart_drug*n_drug>=5
+(1-p_heart_drug)*n_drug>=5
+p_heart_placebo*n_placebo>=5
+(1-p_heart_placebo)*n_placebo>=5
+prop.test(c(num_heart_drug, num_heart_placebo), c(n_drug, n_placebo), alternative = "less", correct = FALSE)
+#p value greater than alpha, we cannot reject the null hypothesis
+sprintf("Under 0.05 significance level, we have no sufficient evidence to say that the drug reduces heart attacks.")
+```
+$$H_0:p_{1}-p_{2}\ge0\\H_1:p_{1}-p_{2}<0$$
+```{r Question 1 part e}
+#Calculate proportions of volunteers who had strokes for drug takers and placebo takers, and run a proportion test
+num_stroke_drug <- sum(df_drug$`Drug Stroke`=="1")
+num_stroke_placebo <- sum(df_placebo$`Placebo Stroke`=="1")
+p_stroke_drug <- num_stroke_drug/n_drug
+p_stroke_placebo <- num_stroke_placebo/n_placebo
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_stroke_drug*n_drug>=5
+(1-p_stroke_drug)*n_drug>=5
+p_stroke_placebo*n_placebo>=5
+(1-p_stroke_placebo)*n_placebo>=5
+prop.test(c(num_stroke_drug, num_stroke_placebo), c(n_drug, n_placebo), alternative = "less", correct = FALSE)
+#p value greater than alpha, we cannot reject the null hypothesis
+sprintf("Under 0.05 significance level, we have no sufficient evidence to say that the drug reduces strokes.")
+```
+$$H_0:p_{1}-p_{2}\ge0\\H_1:p_{1}-p_{2}<0$$
+```{r Question 1 part f}
+#Calculate proportions of volunteers who died for drug takers and placebo takers, and run a proportion test
+num_death_drug <- sum(df_drug$`Drug Death`=="1")
+num_death_placebo <- sum(df[!is.na(df$`Placebo Death`),]$`Placebo Death`=="1")
+n_placebo_death <- length(df[!is.na(df$`Placebo Death`),]$`Placebo Death`)
+p_death_drug <- num_death_drug/n_drug
+p_death_placebo <- num_death_placebo/n_placebo_death
+#Checking the condition for large sample size
+#Checking for successes and failures >= 5
+p_death_drug*n_drug>=5
+(1-p_death_drug)*n_drug>=5
+p_death_placebo*n_placebo_death>=5
+(1-p_death_placebo)*n_placebo_death>=5
+prop.test(c(num_death_drug, num_death_placebo), c(n_drug, n_placebo_death), alternative = "less", correct = FALSE)
+#p value greater than alpha, we cannot reject the null hypothesis
+sprintf("Under 0.05 significance level, we have no sufficient evidence to say that the drug reduces death rate.")
+```
+```{r Question 1 part g}
+sprintf("The above results shows that under the 0.05 significance level, the drug does have effect on reducing LDL and increasing HDL, but does not have enough evidence to say that it can reduce diseases (Heart attacks and strokes), hence not enough evidence to say it can reduce death rate. The possible reason of this result may be that the drug does indeed have effect, but not strong enough, a possible suggestion for developers of Evacetrapib would be to look into the dosage of the drug itself, or try to increase the effect of the drug.")
+```
+<font size="5">Question 2</font>
+
+According to Investopedia, the weekend effect is a phenomenon in financial markets in which stock returns on Mondays are often significantly lower than those of the immediately preceding Friday. Although the cause of the weekend effect is debated, the trading behavior of individual investors appears to be at least one factor contributing to this pattern. Some theories that attempt to explain the weekend effect point to the tendency of companies to release bad news on a Friday after the markets close, which then depresses stock prices on Monday.
+For this homework question, you want to empirically test the weekend effect. Go to Yahoo Finance and enter the stock ticker symbol of the company that you want to analyze. Don’t worry if you don’t know the stock ticker symbol for the company you have in mind. Google it and you will find it. For the purposes of this ques- tion, it doesn’t matter which company you select. You can choose to test the weekend effect on any publicly traded company in the U.S.. Yahoo Finance provides the historical stock trading data for the daily, weekly, and monthly frequencies. For testing the weekend effect, you need to choose the daily frequency. First, you need to decide on the time period. I think recent one year should be enough, although you can select any time period greater than a year starting with the recent (but not less than a year). Second, you need to find the daily returns using the stock prices when the markets open and when the markets close (use Adj Close). Then, you need to prepare the data for testing the weekend effect. You can test using the mean returns. Formulate the hypotheses and run the corresponding statistical test to determine if you see evidence of the weekend effect.
+Opposing research on the “reverse weekend effect” has been conducted by a number of analysts, who show that Monday returns are actually higher than returns on other days. Using the same data that you collected for testing the weekend effect, test if the reverse weekend effect research can be supported. For returns on other days, you can choose any one other day of the week (including Friday.)
+
+$$H_0:\mu_{D}\ge0\\H_1:\mu_{D}<0$$
+<font size="3">or</font>
+$$H_0:\mu_{1}-\mu_{2}\ge0\\H_1:\mu_{1}-\mu_{2}<0$$
+```{r Question 2 Weekend effect}
+#Read daily stock price data for PFE from Yahoo Finance
+df <- read.csv("PFE.csv")
+#Creating time series for the adjusted close price, here I am using the adjusted closing price and open price to compute daily returns
+df$Return <- (df$Adj.Close/df$Open)-1
+#Get weekday of the dates
+library(lubridate)
+#Insert weekday column
+df$Weekday <- wday(df$Date, label=TRUE)
+#According to the question, the weekend effect is a phenomenon which stock returns on Mondays are often significantly lower than those of the "immediately preceding Friday", so we use paired t.test with dependent samples
+#Create a list of dates starting and ending at the same days as the data
+start_date <- as.Date("2021-09-14")
+end_date <- as.Date("2023-09-12")
+date_list <- data.frame(seq(start_date, end_date, by = "days"))
+colnames(date_list) <- "Date"
+#Compare missing dates in the PFE stock data, check for holidays to ensure each Mon and Fri are paired consecutively
+date_list$Weekday <- wday(date_list$Date, label=TRUE)
+date_list <- date_list[date_list$Weekday != "Sat" & date_list$Weekday != "Sun",]
+compare <- merge(date_list, df, by = "Date", all.x = TRUE)
+miss_dates <- compare[is.na(compare$Weekday.y),][,1:2]
+#Find the missing Mondays and Fridays, and get rid of the corresponding Fridays and Mondays
+miss_dates <- miss_dates[miss_dates$Weekday.x == "Mon" | miss_dates$Weekday.x == "Fri",]
+delete_list <- c("2021-12-27","2022-01-14","2022-02-18","2022-04-18","2022-05-27","2022-06-17","2022-07-01","2022-09-02","2022-12-23","2022-12-30","2023-01-13","2023-02-17","2023-04-10","2023-05-26","2023-06-16","2023-09-01")
+#Get the clean data from original data frame
+df_clean <- df[!(df$Date %in% delete_list), ]
+colSums(is.na(df_clean))
+#Get Mondays and Fridays return data accordingly and combine
+Mondays <- df_clean[df_clean$Weekday =="Mon",]
+Fridays <- df_clean[df_clean$Weekday =="Fri",]
+paired <- cbind(Mondays$Return,Fridays$Return)
+#Adjust column names and check for NAs
+colnames(paired) <- c("Monday","Friday")
+colSums(is.na(paired))
+paired <- data.frame(paired)
+#We now have paired returns of Mondays and Fridays, we can now test for the weekend effect
+t.test(paired$Monday, paired$Friday, alternative = "less", mu = 0, paired = TRUE)
+#From the test results, we can conclude that under 0.05 significance value, we do not have sufficient evidence to reject the Null hypothesis
+#Try independent sample t.test to see if results vary
+var.test(df[df$Weekday == "Mon",]$Return, df[df$Weekday == "Fri",]$Return, ratio = 1, alternative = "two.sided")
+#Large p value means under 95% confidence level we fail to reject the Null that variance are equal, run t.test accordingly
+t.test(df[df$Weekday == "Mon",]$Return, df[df$Weekday == "Fri",]$Return, alternative = "less", mu = 0, paired = FALSE, var.equal=TRUE)
+sprintf("From the paired t.test and independent sample t.test conducted above, we can say that under 0.05 significance value, we do not have enough evidence to support the weekend effect")
+```
+$$H_0:\mu_{D}\le0\\H_1:\mu_{D}>0$$
+<font size="3">or</font>
+$$H_0:\mu_{1}-\mu_{2}\le0\\H_1:\mu_{1}-\mu_{2}>0$$
+```{r Question 2 Reverse weekend effect}
+#Using above data, run another paired t.test using Mondays and Fridays
+t.test(paired$Monday, paired$Friday, alternative = "greater", mu = 0, paired = TRUE)
+#Try independent sample t.test to see if results vary, we have already tested for equal variance, just run t.test
+t.test(df[df$Weekday == "Mon",]$Return, df[df$Weekday == "Fri",]$Return, alternative = "greater", mu = 0, paired = FALSE, var.equal=TRUE)
+#From the test results, we can conclude that under 0.05 significance value, we don't have sufficient evidence to reject the Null hypothesis
+sprintf("From the paired t.test conducted above, we can say that under 0.05 significance value, we do not have enough evidence to support the reverse weekend effect")
+```
+<font size="5">Question 3</font>
+
+The officers at the Internal Revenue Service (IRS) in the United States and Canada Revenue Agency (CRA) are always looking for ways to improve the wording and format of its tax return forms. Three new forms have been developed recently. To determine which, if any, are superior to the current form, 120 individuals were asked to participate in an experiment. Each of the three new forms and the currently used form were filled out by 30 different people. The amount of time (in minutes) taken by each person to complete the task was recorded and are given in the CSV file IRS 1. Use a 5% significance level to answer the following questions.
+
+a) Assess whether or not the normality condition is satisfied.
+
+b) Assess whether or not the equal variances condition is met by running the test of equal variances.
+
+c) Run a one-way ANOVA and comment on whether or not differences exist among the forms. 
+
+d) If differences exit, use Tukey’s test to identify which forms are different.
+
+$$H_0:\mu_{1}=\mu_{2}=\mu_{3}=\mu_{4}\\H_1:At\ least\ two\  means\  differ$$
+```{r Question 3}
+#Read the data
+df <- read.csv("IRS 1.csv")
+#Test for normality
+nortest::ad.test(df$Form.1)
+nortest::ad.test(df$Form.2)
+nortest::ad.test(df$Form.3)
+nortest::ad.test(df$Form.4)
+#Print and interpret
+sprintf("Part a: Under 0.05 significance level, we have enough evidence to say that all four samples pass the normality test.")
+#Stack data frame
+df_stack <- stack(df)
+#Rename columns
+names(df_stack) <- c("Minutes","FormType")
+#Test for equal variances
+car::leveneTest(df_stack$Minutes ~ df_stack$FormType)
+bartlett.test(df_stack$Minutes ~ df_stack$FormType)
+boxplot(df_stack$Minutes~df_stack$FormType)
+#Print and interpret
+sprintf("Part b: Under 0.05 significance level, we have enough evidence to say that the samples pass the constant variance condition.")
+#Run one-way ANOVA
+ANOVA <- aov(df_stack$Minutes~df_stack$FormType)
+summary(ANOVA)
+#Print and interpret
+sprintf("Part c: Under 0.05 significance level, we have enough evidence to say that differences exist among the forms.")
+#Run Tukey
+TukeyHSD(ANOVA)
+#Print and interpret
+sprintf("Part d: Under 0.05 significance level we have enough evidence to say that the Form 4 and Form 1 means of minutes taken to complete the task has a difference.")
+```
+<font size="5">Question 4</font>
+
+
+Suppose the experiment in Question 3 is redone in the following way. Thirty people are asked to fill out all four forms. The completion times (in minutes) are recorded and provided in the CSV file IRS 2. Use a 5% significance level to answer the following questions.
+a) Assess whether or not the normality condition is satisfied. (If the condition appears to be not satisfied, then at this time, ignore this requirement and still assume it is satisfied.)
+
+b) Assess whether or not the equal variances condition is met by running the test of equal variances.
+
+c) Run an appropriate ANOVA test and comment on whether or not differences exist among the forms.
+
+d) Comment on the suitability of the experimental design chosen in part c above. Was blocking effective?
+
+e) Use the Tukey’s test to identify which forms are different.
+
+f) Compare the results of the Tukey test from Questions 3 and 4 and comment on why you think the results are different.
+
+g) In the ANOVA table, the Error value under Adj SS column shows the variation within each treatment group. This measure is denoted by SSE (Sum of Squares Error). Note the values from the R ANOVA tables of Questions 3 and 4 and comment on why you think the SSE value in Question 4 is lower.
+
+$$H_0:\mu_{1}=\mu_{2}=\mu_{3}=\mu_{4}\\H_1:At\ least\ two\  means\  differ$$
+```{r Question 4}
+#Read data
+df <- read.csv("IRS 2.csv")
+#Test for normality
+nortest::ad.test(df$Form.1)
+nortest::ad.test(df$Form.2)
+nortest::ad.test(df$Form.3)
+nortest::ad.test(df$Form.4)
+library(tidyr)
+# Use pivot_longer() to stack
+df <- pivot_longer(df, cols = starts_with("Form"), names_to = "FormType", values_to = "Minutes")
+#Collect Residuals and test for normality
+model <- lm(df$Minutes ~ df$FormType + df$Taxpayer)
+resids <- residuals(model)
+nortest::ad.test(resids)
+hist(resids)
+qqnorm(resids)
+qqline(resids)
+#Print and interpret
+sprintf("Part a: Under 0.05 significance level, although the normality test on the data passed, the test on residuals says otherwise, hence we do not have enough evidence to say that all four samples pass the normality test.")
+#Set factor
+df$FormType <- as.factor(df$FormType)
+df$Taxpayer <- as.factor(df$Taxpayer)
+#Test for equal variances
+car::leveneTest(df$Minutes ~ df$FormType)
+bartlett.test(df$Minutes ~ df$FormType)
+boxplot(df$Minutes~df$FormType)
+plot(fitted(model), residuals(model))
+#Print and interpret
+sprintf("Part b: Under 0.05 significance level, we have enough evidence to say that the samples pass the constant variance condition.")
+#Run RMD ANOVA
+ANOVA <- aov(df$Minutes ~ df$FormType + df$Taxpayer)
+summary(ANOVA)
+#Print and interpret
+sprintf("Part c: Under 0.05 significance level, we have enough evidence to say that differences exist among the forms.")
+sprintf("Part d: Under 0.05 significance level, we have enough evidence to say that blocking was effective.")
+#Run Tukey
+TukeyHSD(ANOVA, which = 'df$FormType', ordered = TRUE)
+#Print and interpret
+sprintf("Part e: Under 0.05 significance level we have enough evidence to say that there are differences between the minutes taken to complete the task for the following pairs of forms: Form3 & Form1, Form4 & Form1, Form3 & Form2, Form4 & Form2, Form4 & Form3 .")
+sprintf("Part f: Compared to Q3, RBD indentified more differences between pairs of FormTypes, exactly 4 more pairs. The possible reason is that blocking reduced the variability CRD had in the experimental units, hence making it easier to detect between treatment differences.")
+sprintf("Part g: The SSE value in Question 4 is extremely lower than Question 3 because the variation is being further partitioned, and a lot of them being absorbed by the SSB.")
+```
+<font size="5">Question 5</font>
+
+Suppose that the experiment in Questions 3 and 4 is redone in the following way. Thirty taxpayers fill out each of the four forms. However, 10 taxpayers in each group are in the lowest income bracket, 10 are in the next income bracket, and the remaining 10 are in the highest bracket. The amount of time (in minutes) needed to complete the returns is recorded and provided on the CSV File IRS 3. The data has the following columns.
+Column 1: Group Number (1 = Low Income, 2 = Next Income Bracket, 3 = Highest Bracket)
+Column 2: Times to complete Form 1 (first 10 rows = low income, next 10 rows = next income bracket, and last 10 rows = highest bracket)
+Column 3: Times to complete Form 2 (same format as column 2)
+Column 4: Times to complete Form 3 (same format as column 2)
+Column 5: Times to complete Form 4 (same format as column 2)
+a) How many factors are there? State them.
+b) What are the levels for each factor? State them.
+c) How many treatments are there?
+d) At 5% significance level, is there an evidence of statistically significant interaction? Use the p-value from the ANOVA output and interaction plot to answer. If there is an interaction, describe it.
+e) At 5% significance level, can we conclude that differences exist among the four forms?
+f) At 5% significance level, can we conclude that taxpayers in different brackets require different amounts of time to complete their tax forms?
+
+$$H_0:Factor\  𝐴\  has\  no\  effect\  on\  the\  response\  variable\\H_1:Factor\  𝐴\  has\  an\  effect\  on\  the\  response\  variable$$
+$$H_0:Factor\  B\  has\  no\  effect\  on\  the\  response\  variable\\H_1:Factor\  B\  has\  an\  effect\  on\  the\  response\  variable$$
+$$H_0:Factors\  𝐴\  and\  𝐵\  do\  not\  interact\  to\  affect\  the\  mean\  responses\\H_1:Factors\  𝐴\  and\  𝐵\  do\  interact\  to\  affect\  the\  mean\  responses$$
+```{r Question 5}
+sprintf("Part a: There are two factors in this experiment, Form Type & Income Brackets.")
+sprintf("Part b: There are 4 levels for the Form Type factor: Form 1~4, and 3 levels for Income Brackets: Lowest income, Next income, Highest income. ")
+sprintf("Part c: There are 12 treatments in this experiment, which is the product of levels in factor A and B, given that factor A is Form Type and Factor B is Income Brackets.")
+#Read the data
+df <- read.csv("IRS 3.csv")
+# Use pivot_longer() to stack
+df <- pivot_longer(df, cols = starts_with("Form"), names_to = "FormType", values_to = "Minutes")
+#Set factors
+df$FormType <- as.factor(df$FormType)
+df$Group <- as.factor(df$Group)
+#Collect Residuals and test for normality
+model <- lm(df$Minutes ~ df$FormType + df$Group + df$FormType*df$Group)
+resids <- residuals(model)
+nortest::ad.test(resids)
+hist(resids)
+qqnorm(resids)
+qqline(resids)
+#Test for constant variance
+car::leveneTest(df$Minutes ~ df$FormType)
+bartlett.test(df$Minutes ~ df$FormType)
+boxplot(df$Minutes~df$FormType)
+plot(fitted(model), residuals(model))
+#Run two factor ANOVA
+ANOVA <- aov(df$Minutes ~ df$FormType + df$Group + df$FormType*df$Group)
+summary(ANOVA)
+## Adjust the margins to see the labels
+par(mar = c(5.1, 4.1, 4.1, 8))
+#Plot interaction plots
+interaction.plot(df$FormType, df$Group, df$Minutes)
+interaction.plot(df$Group, df$FormType, df$Minutes)
+#Print and interpret
+sprintf("Part d: From assessing the p-value from the ANOVA summary and also the interaction plots, under 0.05 significance level there is not enough evidence to support there is statistically significant interaction.")
+sprintf("Part e: At 5%% significance level, we do not have sufficient evidence to conclude that differences exist among the four forms.")
+sprintf("Part f: At 5%% significance level, we have sufficient evidence to conclude that taxpayers in different income brackets require different amounts of time to complete their tax forms.")
+```
+<font size="5">Question 6</font>
+
+Detergent manufacturers frequently make claims about the effectiveness of their products. A consumer protection service decided to test the five best selling brands of detergent, where each manufacturer claims that its product produces the “whitest whites” in all water temperatures. The experiment was conducted in the following way. One hundred fifty white sheets were equally soiled. Thirty sheets were washed in each brand — l0 with cold water, 10 with warm water, and 10 with hot water. After washing, the “whiteness” scores for each sheet were measured with laser equipment.
+Column 1: Water temperature code
+Column 2: Scores for detergent 1 (first 10 rows = cold water, middle 10 rows = warm, last 10 rows = hot) 
+Column 3: Scores for detergent 2 (same format as column 2)
+Column 4: Scores for detergent 3 (same format as column 2)
+Column 5: Scores for detergent 4 (same format as column 2)
+Column 6: Scores for detergent 5 (same format as column 2)
+The dataset is provided on the CSV file Detergents.
+
+a) How many factors are there? State them.
+b) What are the levels for each factor? State them.
+c) How many treatments are there?
+d) At 5% significance level, is there an evidence of statistically significant interaction? Use the p-value from the ANOVA output and interaction plot to answer. If there is an interaction, describe it in words.
+e) Is there a reason to conduct the tests of the main effects?
+f) Depending on your response to the previous part (above), conduct the tests of main effects if you need to. If you don’t think you need to conduct the tests of main effects, then don’t answer this part.
+$$H_0:Factor\  𝐴\  has\  no\  effect\  on\  the\  response\  variable\\H_1:Factor\  𝐴\  has\  an\  effect\  on\  the\  response\  variable$$
+$$H_0:Factor\  B\  has\  no\  effect\  on\  the\  response\  variable\\H_1:Factor\  B\  has\  an\  effect\  on\  the\  response\  variable$$
+$$H_0:Factors\  𝐴\  and\  𝐵\  do\  not\  interact\  to\  affect\  the\  mean\  responses\\H_1:Factors\  𝐴\  and\  𝐵\  do\  interact\  to\  affect\  the\  mean\  responses$$
+
+```{r Question 6}
+sprintf("Part a: There are two factors in this experiment, for the purpose of this question, lets say Factor A is Brands, Factor B is water temperatures.")
+sprintf("Part b: There are 5 levels for Factor A: Detergent Brand1~5, there are 3 levels for Factor B: Cold water, Warm water, Hot water.")
+sprintf("Part c: There are 15 treatments in this experiment, which is the product of levels in factor A and B.")
+#Read the data
+df <- read.csv("Detergents.csv")
+#Use pivot_longer() to stack
+df <- pivot_longer(df, cols = starts_with("Detergent"), names_to = "Brand", values_to = "Scores")
+#Set factors
+df$Brand <- as.factor(df$Brand)
+df$Temperature <- as.factor(df$Temperature)
+#Collect Residuals and test for normality
+model <- lm(df$Scores ~ df$Brand + df$Temperature + df$Brand*df$Temperature)
+resids <- residuals(model)
+nortest::ad.test(resids)
+hist(resids)
+qqnorm(resids)
+qqline(resids)
+#Test for constant variance
+car::leveneTest(df$Scores ~ df$Brand)
+bartlett.test(df$Scores ~ df$Brand)
+boxplot(df$Scores ~ df$Brand)
+plot(fitted(model), residuals(model))
+#Run two factor ANOVA
+ANOVA <- aov(df$Scores ~ df$Brand + df$Temperature + df$Brand*df$Temperature)
+summary(ANOVA)
+#Plot interaction plots
+interaction.plot(df$Brand, df$Temperature, df$Scores)
+interaction.plot(df$Temperature, df$Brand, df$Scores)
+sprintf("Part d: From assessing the p-value from the ANOVA summary and also the interaction plots, under 0.05 significance level there is not enough evidence to support there is statistically significant interaction. We hence say the effect that detergent brand has on the whiteness score depends on the water temperature.")
+sprintf("Part e: We have already found significant interaction between the two factors under 0.05 significance level, there is no need to conduct the tests of the main effects.")
+```
