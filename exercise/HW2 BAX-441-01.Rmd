@@ -1,0 +1,166 @@
+---
+title: "HW2 BAX-441-01"
+author: "Ian Chen"
+date: "2023-10-17"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("readxl")
+```
+<font size="5">Question 1</font>
+
+Initial levels of advertising often bring a larger response in the market than later spending. In this question, advertising comes in the form of devoting more shelf space to the indicated product. The level of sales is the weekly total sales of this product at several outlets of a chain of markets. The display space gives the number of shelf feet used to display the item. The data include sales at 48 stores and are available on the CSV file Display Space.
+a) Create a scatterplot for the level of sales on the number of shelf feet. Does the relationship appear linear? Do you think that it ought to be linear?
+b) Fit a linear regression equation to the data, regressing sales on the number of shelf feet. Does this fitted model make substantive sense? What do the slope and intercept tell you?
+c) If you see nonlinear relationship in part (a), then use Tukey’s bulging rule and transform variables according to the rule. Create a scatterplot that shows the relationship between the new set of variables. Does the relationship seem more linear than in part (a)? Fit a linear regression equation to the transformed data. What do the slope and intercept tell you?
+d) Compare the fit of the two models to the data. Use R2, the model standard error, and draw any inferences about the slope to check. Which of the two models provide a better description of the pattern in the data?
+
+$$Inference\ about\ \rho\ two-tailed \ test :\\H_0:\rho=0\\H_1:\rho\ne0$$
+$$Inference\ about\ \rho\ one-tailed \ test :\\H_0:\rho\le0\\H_1:\rho>0$$
+$$Inference\ about\ Slope\ \beta_{1} :\\H_0:\beta_{1}=0\\H_1:\beta_{1}\ne0$$
+$$Inference\ about\ Intercept\ \beta_{0} :\\H_0:\beta_{0}=0\\H_1:\beta_{0}\ne0$$
+```{r Question 1}
+#Read data
+df <- read.csv("Display Space.csv")
+#Plot scatter plot of Sales on shelf feet
+plot(df$Display.Feet, df$Sales, main = "Sales versus Display Space", xlab = "Shelf Feet", ylab = "Level of Sales")
+abline(lm(df$Sales ~ df$Display.Feet))
+#Smooth trendline
+scatter.smooth(x=df$Display.Feet, y=df$Sales, main="Sales ~ Display") 
+#Calculate correlation
+cor(df$Display.Feet, df$Sales)
+#Conduct correlation tests using a two-tailed test
+cor.test(df$Display.Feet, df$Sales, alternative = "two.sided", method = "pearson")
+#Conduct correlation tests using a one-tailed test to see if correlation is positive
+cor.test(df$Display.Feet, df$Sales, alternative = "greater", method = "pearson")
+sprintf("Part a: Based on the scatterplot itself, the relationship of display feet and level of sales does not appear to be linear. And it doesn't ought to be linear as it seems very logical that the affect of display space on sales would have diminishing marginal effects, hence there is only so much impact you can pose on sales by enlarging the display space up until  a certain limit.")
+#Definig the regression model
+Sales <- df$Sales
+Display <- df$Display.Feet
+lm.DS <- lm(Sales ~ Display)
+#Display the ANOVA table containing the SS information
+anova(lm.DS)
+#Display the Coefficients information
+summary(lm.DS)
+sprintf("Part b: Although the p value for coefficients are smaller than any reasonable signigicane level and it seems it shows strong correlation, but the scatter plot shows signs of nonlinear relationship, we should perform response variable transformation based on Tukey’s bulging rule. From the summaries from the model itself, the slope tells us there is a strong positive relationship(one change in display feet makes sales level increase 39.76), the intercept tells us that with zero display feet, a product still has a sales level of 93.03(might be online orders or prodcuts sold by shipments rather than on shelf), and if we set the display feet as 1, the predicted sales level would be 132.79, these conclusions are misleading as previously mentioned.")
+#Perform log transform
+Log_Feet <- log(df$Display.Feet)
+#Plot scatter plot of Log_Sales on shelf feet
+plot(Log_Feet, df$Sales, main = "Sales versus Log Display Space", xlab = "Log Shelf Feet", ylab = "Sales")
+abline(lm(df$Sales ~ Log_Feet))
+#Smooth trendline
+scatter.smooth(x=Log_Feet, y=df$Sales, main="Sales ~ Log_Display") 
+#Calculate correlation
+cor(Log_Feet, df$Sales)
+#Conduct correlation tests using a two-tailed test
+cor.test(Log_Feet, df$Sales, alternative = "two.sided", method = "pearson")
+#Conduct correlation tests using a one-tailed test to see if correlation is positive
+cor.test(Log_Feet, df$Sales, alternative = "greater", method = "pearson")
+#Definig the regression model
+Sales <- df$Sales
+lm.LDS <- lm(Sales ~ Log_Feet)
+#Display the ANOVA table containing the SS information
+anova(lm.LDS)
+#Display the Coefficients information
+summary(lm.LDS)
+#Sales = 83.56 + 138.621*Log_Feet
+#One change in the Log_Feet would increase the sales by 138.621
+#Antilog(1) = 2.718282/ 2.718282 change of feet increase sales by 138.621
+exp(1)
+sprintf("Part c: The p value for coefficients are smaller than any reasonable signigicane level and it seems it shows strong correlation, after variable transformation the correlation is even stronger and it does seem more linear than part a. The slope and interception tells us that an increase of 2.718282 in display feet will increase the sales by 138.621, and if we set the display feet as 2.718282, the predicted sales level would be 222.181.")
+#Comparing statistics for two results
+summary(lm.DS)
+summary(lm.LDS)
+cor(df$Display.Feet, df$Sales)^2
+cor(Log_Feet, df$Sales)^2
+summary(lm.DS)$sigma
+summary(lm.LDS)$sigma
+summary(lm.DS)$coefficients[, "Std. Error"]
+summary(lm.LDS)$coefficients[, "Std. Error"]
+sprintf("Part d: After variable transformation, the R^2 changed increased from 0.712 to 0.8153, residual standard error decreased from 51.59 to 41.31, and the p-value is smaller after the transformation, which all shows statistical significance that the second model provides a better description of the pattern in the data.")
+```
+<font size="5">Question 2</font>
+
+
+The human resource manager of a telemarketing firm is concerned about the rapid turnover of the firm’s telemarketers. It appears that many telemarketers do not work very long before quitting. There may be a number of reasons, including relatively low pay, personal unsuitability for the work, and the low probability of advancement. Because of the high cost of hiring and training new workers, the manager decided to examine the factors that influence workers to quit. He reviewed the work history of a random sample of workers who have quit in the last year and recorded the number of weeks on the job before quitting and the age of each worker when originally hired. The dataset is available on the Excel file Turnover.
+a) Use regression analysis to describe how the work period and age are related.
+b) Briefly discuss what the coefficients tell you. In other words, interpret the intercept and slope coefficient estimates.
+c) The company just hired a 22-year-old telemarketer. Predict with 95% confidence how long he will stay with the company.
+d) Predict with 95% confidence the mean work period of 22-year-old telemarketers.
+
+$$Inference\ about\ \rho\ two-tailed \ test :\\H_0:\rho=0\\H_1:\rho\ne0$$
+$$Inference\ about\ \rho\ one-tailed \ test :\\H_0:\rho\ge0\\H_1:\rho<0$$
+$$Inference\ about\ Slope\ \beta_{1} :\\H_0:\beta_{1}=0\\H_1:\beta_{1}\ne0$$
+$$Inference\ about\ Intercept\ \beta_{0} :\\H_0:\beta_{0}=0\\H_1:\beta_{0}\ne0$$
+```{r Question 2}
+#Read excel
+library(readxl)
+df <- read_excel("Turnover.xlsx")
+#Plot scatter plot of Sales on shelf feet
+plot(df$Age, df$Employment, main = "Age versus Weeks on Job", xlab = "Age", ylab = "Weeks on Job")
+abline(lm(df$Employment ~ df$Age))
+#Smooth trendline
+scatter.smooth(x=df$Age, y=df$Employment, main="Employment ~ Age") 
+#Calculate correlation
+cor(df$Age, df$Employment)
+#Conduct correlation tests using a two-tailed test
+cor.test(df$Age, df$Employment, alternative = "two.sided", method = "pearson")
+#Conduct correlation tests using a one-tailed test to see if correlation is negative
+cor.test(df$Age, df$Employment, alternative = "less", method = "pearson")
+#Definig the regression model
+Employment <- df$Employment
+Age <- df$Age
+lm.AE <- lm(Employment ~ Age)
+#Display the ANOVA table containing the SS information
+anova(lm.AE)
+#Display the Coefficients information
+summary(lm.AE)
+#Employment = 30.63307 - 0.11692*Age
+sprintf("Part a: Based on the correlation and coefficients and Residual standard error of the model, we know that there is a weak negative relationship between Age and weeks employees stay on the job. With a correlation of -0.434 and residual standard error of 1.813. And p-value for slope is lower than any reasonable significance level. Which both give strong evidence that the model fits. ")
+sprintf("Part b: The coefficient estimate shows Employment = 30.63307 - 0.11692*Age, given an employee who joined the company at age 20, the estimated weeks he or she would stay on the job is 28.29467 weeks. In other words an increase of one year in age would decrease the weeks of staying on the job by 0.11692.")
+#Prediction Interval of 22-year-old
+predict(lm.AE, data.frame(Age = 22), interval = "prediction", level = 0.95)
+sprintf("Part c: Under 95%% confidence, the company can expect a 22-year-old telemarketer would stay with the company for 28.0609 weeks. We are 95%% confident that the interval between 24.33377 weeks and 31.78804 weeks contains the predicted time a 22-year-old telemarketer will stay with the company.")
+#Confidence Interval
+predict(lm.AE, data.frame(Age = 22), interval = "confidence", level = 0.95)
+sprintf("Part d: Under 95%% confidence, the predicted mean work period of 22-year-old telemarketers would be  28.0609 weeks. We are 95%% confident that the interval between 27.13291 weeks and 28.9889 weeks contains the mean predicted work period 22-year-old telemarketers will stay with the company.")
+```
+<font size="5">Question 3</font>
+
+Caterpillar, Inc. manufactures and sells heavy construction equipment worldwide. The performance of Caterpillar’s stock is likely to be strongly influenced by the economy. For instance, during the subprime mortgage crisis, the value of Caterpillar’s stock plunged dramatically. Monthly data for Caterpillar’s risk-adjusted return (Cat Adj) and the risk-adjusted market return (Market Adj) are collected for a five-year period (n = 60) The dataset are available on the Excel file Caterpillar.
+a) Estimate the CAPM: Cat Adj = β0 + β1 · Market Adj + ε.
+b) At the 5% significance level, determine if investment in Caterpillar is riskier than the market (beta signifi-
+cantly greater than 1).
+c) At the 5% significance level, is there evidence of abnormal returns?
+
+$$Inference\ about\ \rho\ two-tailed \ test :\\H_0:\rho=0\\H_1:\rho\ne0$$
+$$Inference\ about\ \rho\ one-tailed \ test :\\H_0:\rho\le0\\H_1:\rho>0$$
+$$Inference\ about\ Slope\ \beta_{1} :\\H_0:\beta_{1}\le1\\H_1:\beta_{1}>1$$
+$$Inference\ about\ Intercept\ \alpha :\\H_0:\alpha=0\\H_1:\alpha\ne0$$
+```{r Question 3}
+#Read data
+df <- read_excel("Caterpillar.xlsx")
+#Calculate correlation
+cor(df$Cat_Adj, df$Market_Adj)
+#Conduct correlation tests using a two-tailed test
+cor.test(df$Market_Adj, df$Cat_Adj, alternative = "two.sided", method = "pearson")
+#Conduct correlation tests using a one-tailed test to see if correlation is negative
+cor.test(df$Market_Adj, df$Cat_Adj, alternative = "greater", method = "pearson")
+#Regression model
+Cat_Adj <- df$Cat_Adj
+Market_Adj <- df$Market_Adj
+lm.CAPM <- lm(Cat_Adj ~ Market_Adj)
+#Display results
+anova(lm.CAPM)
+summary(lm.CAPM)
+#Calculate t critical value
+t_critical <- qt(0.05, 60-1-1, lower.tail = FALSE)
+t_critical
+#Calculate t test statistic
+t_test_stat <- (1.7584 - 1)/0.1843
+t_test_stat
+sprintf("Part b: Since the t_test_stat is much greater than the t_critical, for a right-tailed test we reject H0: beta <= 1. We infer at 5%% significance level that beta > 1 and is statistically significant. Investment in Caterpillar is riskier than the market.")
+sprintf("Part c: Looking at the p-value of the intercept which is 0.0945 is greater than 0.05 significance level, so we fail to reject the null, and conclude that there is not enough evidence of abnormal returns")
+```

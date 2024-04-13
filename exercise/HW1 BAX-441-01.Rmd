@@ -1,0 +1,95 @@
+---
+title: "HW1 BAX-441-01"
+author: "Ian Chen"
+date: "2023-10-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages("tidyr")
+install.packages("readxl")
+install.packages("reshape2")
+```
+<font size="5">Question 1</font>
+
+The dataset named ATM shows the number of ATM customer arrivals per minute in 60 randomly chosen minutes. Research question: At α = 0.05, using the chi-square goodness of fit test, can you reject the hypothesis that the number of arrivals per minute follows a Poisson distribution?
+
+$$H_0:p_{0}=0.3441,\ p_{1}=0.3671,\ p_{2}=0.1958,\ p_{3+}= 0.093\\H_1:At\ least\ one\ proportion\ differs\ from\ the \ expected\ Possion\ distribution$$
+```{r Question 1}
+library(readxl)
+#Read excel
+df <- read_excel("ATM.xlsx")
+#Check DF and check for NA
+str(df)
+colSums(is.na(df))
+#Count Arrivals
+t <- table(df$Arrivals)
+addmargins(t)
+#Compute weighted mean
+mean <- (18+2*8+3*7+4*1+5*1)/60
+#Find expected probability using sample mean
+p_0 <- dpois(0,mean)
+60*p_0
+p_1 <- dpois(1,mean)
+60*p_1
+p_2 <- dpois(2,mean)
+60*p_2
+p_3 <- 1-(p_0+p_1+p_2)
+60*p_3
+#Create vectors for observation and expected proportion
+Obs <- c(25,18,8,9)
+Exp <- c(p_0,p_1,p_2,p_3)
+#Run chisquare test
+chisq.test(x = Obs, p = Exp)
+#Calculate p-value with the right df
+pchisq(4.9474, 2, lower.tail = FALSE)
+sprintf("Under 0.05 alpha, we do not have enough evidence to reject the Null hypothesis that the number of arrivals per minute follows a Poisson distribution")
+```
+<font size="5">Question 2</font>
+
+In a clinical trial of the effectiveness of echinacea for preventing colds, the results in the table below were obtained (based on data from “An Evaluation of Echinacea angustifolia in Experimental Rhinovirus Infections,” by Turner et al., New England Journal of Medicine, Vol. 353, No. 4). Use a 0.05 significance level to test the claim that getting a cold is independent of the treatment group. What do the results suggest about the effectiveness of echinacea as a prevention against colds?
+
+$$H_0:Getting\ a\ Cold\ and\ echinacea\ are\ independent\\H_1:Getting\ a\ Cold\ and\ echinacea\ are\ dependent$$
+```{r Question 2}
+library(tidyr)
+# Create a contingency table
+contingency_table <- data.frame(Treatment = c("Placebo","Placebo","20%","20%", "60%","60%"), cold = c("Yes", "No", "Yes", "No","Yes", "No"), Count = c(88, 15, 48, 4,42,10))
+contingency_table
+# Convert the contingency table to a stacked table
+df <- data.frame()
+# Loop through each row of the original data frame to duplicate using the column Count
+for (i in 1:nrow(contingency_table)) {
+  Treatment <- contingency_table$Treatment[i]
+  Cold <- contingency_table$cold[i]
+  Count <- contingency_table$Count[i]
+  duplicated_row <- data.frame(
+    Treatment = rep(Treatment, Count),
+    Cold = rep(Cold, Count),
+    Count = rep(1, Count)
+  )
+  df <- rbind(df, duplicated_row)
+}
+#Run chisquare test of independence
+chisq.test(df$Cold,df$Treatment, correct=FALSE)
+mosaicplot(~ Treatment + Cold, data = df, 
+           main = "Mosaic Plot", xlab = "Treatment", ylab = "Cold",
+           color = c(2, 4, 5, 3))
+sprintf("Uner 0.05 alpha level,we do not have enough evidence to reject the Null that getting a cold and taking echinacea is independent. The results suggest that the effectiveness of echinacea as a prevention against colds is not significant ")
+```
+<font size="5">Question 3</font>
+
+Television viewing habits are changing. In a recent study, viewers were asked: “Which network or source would you keep if you could only keep one?” Using this information, in the top four choices, 35% of all viewers would keep Netflix, 23% would keep CBS, 21% would keep ABC, and 21% would keep NBC. A random sample of 120 viewers who were 35 years or older showed that 30 would keep ABC, 32 would keep CBS, 30 would keep NBC, and 28 would keep Netflix. At the 0.05 significance level, can we conclude that the viewing habits of viewers who are 35 years or older are the same when compared to all age groups?
+
+
+$$H_0:p_{Netflix}=0.35 \ p_{CBS}=0.23\ p_{ABC}=0.21\ p_{NBC}=0.21\\H_1:Atleast\ one\ proportion\ of\ viewers\ who\ are\ 35\ years\ or\ older\ differs\ from\ all\ age\ groups$$
+
+```{r Question 3}
+#Create vectors for observations and expected proportion
+Obs <- c(28, 32, 30, 30)
+Exp <- c(0.35, 0.23, 0.21, 0.21)
+#Run chisquared GOF test
+chisq.test(x= Obs, p = Exp)
+chisq.test(x= Obs, p = Exp)$expected
+sprintf("At the 0.05 significance level, we do not have enough evidence to reject the null, hence we conclude that the viewing habits of viewers who are 35 years or older are the same when compared to all age groups")
+```

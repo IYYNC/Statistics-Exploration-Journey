@@ -1,0 +1,1242 @@
+---
+title: "HW4 BAX-441-01"
+author: "Ian Chen"
+date: "2023-11-21"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(readr)
+library(dplyr)
+library(stats)
+knitr::opts_chunk$set(echo = TRUE)
+plot_line_chart <- function(df, x_col, y_col) {
+  # Extract the variables based on column names
+  x <- df[[x_col]]
+  y <- df[[y_col]]
+
+  # Plot the line chart
+  plot(x, y, type = "l", main = paste("Line Chart of", x_col, "vs", y_col), 
+       xlab = x_col, ylab = y_col, col = "darkorange", lwd = 2)
+}
+
+#Function that plots linear line and smoothed line on original data
+plot_scatter_with_both_lines <- function(df, x_col, y_col) {
+  # Extract the variables based on column names
+  x <- df[[x_col]]
+  y <- df[[y_col]]
+  plot(x, y, main = paste("Scatter Plot of", x_col, "vs", y_col), 
+       xlab = x_col, ylab = y_col, pch = 19, col = "darkgray")
+  model <- lm(y ~ x, data = df)
+  abline(model, col = "steelblue", lwd = 2)
+  lines(lowess(x, y), col = "darkorange", lwd = 2)
+}
+#Create a function that deals with differenct functional forms and runs model and plots accordingly
+fit_and_plot_model <- function(df, x_cols, y_col, model_type = "linear", degree = 2) {
+  # Construct the base part of the regression formula
+  x_formula_part <- paste(x_cols, collapse = " + ")
+
+  # Adjust formula based on model type
+  formula_str <- y_col
+  if (model_type == "linear") {
+    formula_str <- paste(formula_str, "~", x_formula_part)
+  } else if (model_type == "polynomial") {
+    poly_terms <- paste("poly(", x_formula_part, ",", degree, ")", collapse = " + ")
+    formula_str <- paste(y_col, "~", poly_terms)
+  } else if (model_type == "reciprocal") {
+    reciprocal_terms <- paste("I(1 /", x_formula_part, ")", collapse = " + ")
+    formula_str <- paste(y_col, "~", reciprocal_terms)
+  } else if (model_type == "lin-log") {
+    log_terms <- paste("log(", x_cols, ")", collapse = " + ")
+    formula_str <- paste(y_col, "~", log_terms)
+  } else if (model_type == "log-lin") {
+    formula_str <- paste("log(", y_col, ") ~", x_formula_part)
+  } else if (model_type == "log-log") {
+    log_terms <- paste("log(", x_cols, ")", collapse = " + ")
+    formula_str <- paste("log(", y_col, ") ~", log_terms)
+  }
+
+  # Fit the model
+  model <- lm(as.formula(formula_str), data = df)
+
+  # Set up plotting area based on the number of x variables
+  num_x_vars <- length(x_cols)
+  num_rows <- ifelse(num_x_vars > 1, ceiling(sqrt(num_x_vars)), 1)
+  num_cols <- ifelse(num_x_vars > 1, ceiling(num_x_vars / num_rows), 1)
+  par(mfrow = c(num_rows, num_cols))
+
+  for (x_col in x_cols) {
+    # Prepare plot title and axis labels based on model type
+    plot_title <- paste(model_type, "Model:", y_col, "vs", x_col)
+    x_label <- x_col
+    y_label <- y_col
+
+    if (model_type == "reciprocal") {
+      x_label <- paste("1/", x_col)
+    } else if (model_type == "lin-log") {
+      x_label <- paste("log(", x_col, ")")
+    } else if (model_type == "log-lin") {
+      y_label <- paste("log(", y_col, ")")
+    } else if (model_type == "log-log") {
+      x_label <- paste("log(", x_col, ")")
+      y_label <- paste("log(", y_col, ")")
+    }
+
+    # Plot the data
+    plot_data <- df[[x_col]]
+    plot_y <- df[[y_col]]
+    if (model_type == "reciprocal") {
+      plot_data <- 1 / df[[x_col]]
+    } else if (model_type == "lin-log") {
+      plot_data <- log(df[[x_col]])
+    } else if (model_type == "log-lin") {
+      plot_y <- log(df[[y_col]])
+    } else if (model_type == "log-log") {
+      plot_data <- log(df[[x_col]])
+      plot_y <- log(df[[y_col]])
+    }
+    plot(plot_data, plot_y, main = plot_title, xlab = x_label, ylab = y_label, pch = 19)
+
+    # Add a regression line or curve
+   
+    abline(model, col = "steelblue")
+  }
+  print(summary(model))
+
+  # Return the summary of the model
+  return(summary(model))
+}
+
+#Function for creating dummies
+create_dummy_vars <- function(df, cols, reference_vals) {
+  # Check if the specified columns exist in the dataframe
+  if(!all(cols %in% names(df))) {
+    stop("One or more specified columns do not exist in the dataframe.")
+  }
+  # Create dummy variables for each specified column
+  for (col in cols) {
+    # Check if a reference value is provided for the column
+    if (!col %in% names(reference_vals)) {
+      stop(paste("No reference value provided for column", col))
+    }
+    # Get unique values in the column
+    unique_vals <- unique(df[[col]])
+    # Exclude the reference value
+    unique_vals <- unique_vals[unique_vals != reference_vals[[col]]]
+    # Create a dummy variable for each unique value
+    for (val in unique_vals) {
+      dummy_col_name <- paste(col, val, sep = "_")
+      df[[dummy_col_name]] <- as.numeric(df[[col]] == val)
+    }
+  }
+  return(df)
+}
+```
+<font size="5">Question 1</font>
+
+Suppose that Electronics World, a chain of stores that sells audio and video equipment, has gathered the data
+in CSV file Electronics. These data concern
+• store sales volume in July of last year (Y , measured in thousands of dollars)
+• the number of households in the store’s area (X, measured in thousands)
+• the location of the store (on a suburban street, in a suburban shopping mall, or in downtown — a qualitative
+independent variable)
+Create a multiple regression model with Sales as the response variable, number of households and Location as the regressors. Set the Street location as the base or the reference category. Compare the sales of the three locations using the point estimates and the 95% confidence interval estimates. This question is a practice on interpreting dummy variable coefficients. I don’t require drawing any inferences for this question. You will not be penalized for not drawing any inferences. In other words, no Global F-test and no individual t-tests for beta coefficients are necessary.
+
+$$ Y = \beta_0 + \beta_1X + \beta_2D_{\text{Mall}} + \beta_3D_{\text{Downtown}} + \epsilon $$
+$$ \hat{Y} = 14.97769 + 0.86859 \times \text{Households} + 28.37376 \times D_{\text{Mall}} + 6.86378 \times D_{\text{Downtown}} $$
+
+
+```{r Question 1}
+# Load the data from CSV
+data <- read.csv("Electronics.csv") 
+#Create dummies
+data <- create_dummy_vars(data, cols = c("Location"), reference_vals = list(Location = "Street"))
+#Fit model
+modelq1 <- lm(Sales ~ Households + Location_Mall+Location_Downtown ,  data = data)
+summary(modelq1)
+modelq1_ANCOVA.coeff <- coef(modelq1)
+#Plor scatter
+plot(data$Sales~data$Households, 
+     data, pch=16, 
+     col=as.numeric(as.factor(data$Location))+1,
+     xlim = c(0, 300), ylim = c(0, 300))
+#Draw regression lines
+abline(a=modelq1_ANCOVA.coeff[1], 
+       b=modelq1_ANCOVA.coeff[2], 
+       col=4)
+abline(a=modelq1_ANCOVA.coeff[1] + modelq1_ANCOVA.coeff[3], 
+       b=modelq1_ANCOVA.coeff[2], 
+       col=2)
+abline(a=modelq1_ANCOVA.coeff[1] + modelq1_ANCOVA.coeff[4], 
+       b=modelq1_ANCOVA.coeff[2], 
+       col=3)
+legend("bottomright", levels(as.factor(data$Location)), 
+       pch=11, 
+       lwd=1, 
+       col=2:4,
+       cex = 0.5)
+##fit_and_plot_model(data,c("Households","Location_Mall","Location_Downtown"),"Sales", model_type = "linear")
+conf_intervals <- confint(modelq1, level=0.95)
+print(conf_intervals)
+# Print out the interpretation of the coefficients and their confidence intervals
+cat("Interpreting the Coefficients and 95% Confidence Intervals:\n")
+
+# Point Estimates
+cat("Households: For each additional thousand households in the store's area,",
+    "the sales volume increases by an estimated 0.86859 thousand dollars (or 868.59 dollars),",
+    "holding the location constant.\n")
+
+cat("Location_Mall: Stores located in a suburban mall have an estimated increase in sales of",
+    "28.37376 thousand dollars compared to stores on a suburban street, holding the number of households constant.\n")
+
+cat("Location_Downtown: Stores located downtown have an estimated increase in sales of",
+    "6.86378 thousand dollars compared to stores on a suburban street, holding the number of households constant.\n")
+# 95% Confidence Intervals
+cat("\n95% Confidence Intervals:\n")
+cat("Households: 95% CI [", conf_intervals["Households", "2.5 %"], ",", conf_intervals["Households", "97.5 %"], "]\n")
+cat("Location_Mall: 95% CI [", conf_intervals["Location_Mall", "2.5 %"], ",", conf_intervals["Location_Mall", "97.5 %"], "]\n")
+cat("Location_Downtown: 95% CI [", conf_intervals["Location_Downtown", "2.5 %"], ",", conf_intervals["Location_Downtown", "97.5 %"], "]\n")
+# Interpretation of the 95% Confidence Intervals
+cat("Interpretation of the 95% Confidence Intervals:\n")
+cat("Households: The 95% confidence interval for the coefficient of the number of households is (0.77947, 0.9577061).",
+    "This means that we are 95% confident that the true increase in sales for each additional thousand households",
+    "in the store's area lies between $779.47 and $957.71, holding the location constant.\n\n")
+cat("Location_Mall: The 95% confidence interval for the effect of being located in a mall versus on a suburban street is (18.5544864, 38.1930257).",
+    "This suggests that we are 95% confident that the true increase in sales for stores located in a mall, compared to those on a suburban street,",
+    "is between $18,554.49 and $38,193.03, controlling for the number of households.\n\n")
+cat("Location_Downtown: The 95% confidence interval for the effect of being located downtown versus on a suburban street is (-3.6359712, 17.3635248).",
+    "This interval includes zero, which suggests that we are 95% confident that the true effect of being located downtown, as compared to a suburban street,",
+    "could be either an increase of up to $17,363.52 or a decrease of up to $3,635.97 in sales, controlling for the number of households.",
+    "The fact that this confidence interval includes zero implies that we cannot definitively say whether being located downtown increases or decreases sales",
+    "compared to being on a suburban street, given the data at hand.\n")
+```
+<font size="5">Question 2</font>
+
+The WinterFun Company sells winter sports merchandise including skis, ice skates, sleds, and so on. Quarterly sales (in thousands of dollars) for the WinterFun company are shown on the CSV file WinterFun. The time period represented starts in the first quarter of 2008 and ends in the fourth quarter of 2017.
+A linear regression containing only the time variable like shown below is called a linear trend model. y = β1 + β2t + ε
+One of the common objectives of such analysis is if the linear trend model is sufficient for predicting sales or are the sales influenced by seasonality. For this question, follow the steps provided in the parts below to construct a final model:
+
+a) Create a linear trend model. Write the model. Linear trend model means using only time (t) as the regressor.
+
+b) Now, you want to see if there is any seasonality. For this part, let’s use a descriptive approach. Create a time plot of sales (Sales versus Time) and check if there are seasonal patterns. Examine evidence of seasonality visually. Describe the seasonality in your own words.
+
+c) Create indicator variables for quarters.
+
+d) Conduct a Partial F-test to assess if the seasonal indicator variables are necessary in the model. Write the full model, the reduced models, and the hypotheses clearly. The reduced model in this case is the linear trend model and the full model is the one with indicator and the trend variables. Write your conclusion and interpretation. Compute the coefficient of partial determination and interpret it.
+
+
+
+$$
+Part\ a\ Linear\  Trend\  Model\ (Reduced):\\
+Y_t = \beta_1 + \beta_2t + \epsilon_t
+$$
+
+
+$$
+Part\ a\ Estimated\ Regression\ Equation\ (Reduced):\\
+\hat{Y_t} = 199.017 + 2.556t
+$$
+
+$$
+Part\ c\ Model\ (Full):\\
+Y_t = \beta_1 + \beta_2t + \beta_3D_{2t} + \beta_4D_{3t} + \beta_5D_{4t} + \epsilon_t
+$$
+
+$$
+Part\ c\ Estimated\ Regression\ Equation\ (Full):\\
+\hat{Y_t} = 214.59413 + 2.56610 \cdot t - 29.86610 \cdot D_{2t} - 29.53220 \cdot D_{3t} - 3.74830 \cdot D_{4t}
+$$
+
+$$Partial\ Ftest\ for\ the\ full\ model\ vs\ reduced\ model:\\H_{0}:\beta_{3}=\beta_{4}=\beta_{5}=0\\H_{1}:Atleast\ one\ \beta_{i}\ is\ not\ equal\ to\ zero\\or\\H_{0}:The\ reduced\ model\ and\ the\ full\ model\ do\ not\ differ\ significantly,\ so\ choose\ the\ reduced\ model.\\H_{1}:The\ full\ model\ is\ significantly\ better.$$
+
+
+
+```{r Question 2}
+#Part a read adata and fit model
+data <- read.csv('WinterFun.csv')
+model_a <- lm(data$SALES ~ data$TIME,data=data)
+summary(model_a)
+#Part b plott
+plot_line_chart(data,'TIME','SALES')
+cat("Part b\n\n",
+    "Visual examination of the time plot of sales reveals a clear seasonal pattern. ",
+    "The sales exhibit regular peaks and troughs that suggest higher sales in certain quarters each year, ",
+    "indicative of seasonal influences on the company's sales performance.\n")
+#Part c
+Q2 <- ifelse(data$QUARTER == 2, 1, 0)
+Q3 <- ifelse(data$QUARTER == 3, 1, 0)
+Q4 <- ifelse(data$QUARTER == 4, 1, 0)
+#Part d fir full model
+model_c <- lm(data$SALES ~ data$TIME+Q2 + Q3 + Q4, data = data)
+summary(model_c)
+#Run Partial F test
+anova(model_a, model_c)
+#coefficient of partial determination
+partial_r_sq <- (9622.1 - 1809.5)/9622.1
+partial_r_sq
+cat("Part d - Interpretation of Partial F-test and Coefficient of Partial Determination:\n\n",
+    "The partial F-test comparing the reduced model with only time as a predictor ",
+    "and the full model with additional seasonal dummies yields a highly significant p-value which is way smaller than any reasonable alpha level. ",
+    "This result leads us to reject the null hypothesis, indicating that the seasonal dummies ",
+    "jointly significantly improve the model's explanatory power.\n\n",
+    "The calculated partial R-squared is approximately 0.8119, indicating that about 81.19% of ",
+    "the variation in sales not explained by the time trend is accounted for by the seasonal effects. ",
+    "Hence, seasonality is confirmed to be a crucial factor in the sales model.\n")
+cat("Interpretation of the Full Model Coefficients:\n\n",
+    "The intercept, estimated at 214.59413, represents the expected sales value at the beginning of the time series when time and seasonal effects are not present.\n",
+    "The time coefficient of 2.56610 suggests that, on average, sales increase by approximately 2.56610 thousand dollars each time period (e.g., quarter), assuming the absence of seasonal effects.\n",
+    "The coefficients for the seasonal dummies Q2, Q3, and Q4 reflect the differences in sales compared to the first quarter (Q1). Specifically:\n",
+    "- Q2's coefficient of -29.86610 indicates that sales in the second quarter are, on average, 29.86610 thousand dollars lower than in the first quarter.\n",
+    "- Q3's coefficient of -29.53220 suggests that sales in the third quarter are, on average, 29.53220 thousand dollars lower than in the first quarter.\n",
+    "- Q4's coefficient, although negative (-3.74830), is not statistically significant (p-value: 0.254), indicating that there is not enough evidence to conclude that sales in the fourth quarter are different from the first quarter when considering the standard levels of confidence.\n\n",
+    "The model's high R-squared value (0.9593) indicates that a significant portion of the variability in sales is explained by the time trend and the seasonal dummies included in the model.\n")
+```
+<font size="5">Question 3</font>
+
+Question 3 (30 points)
+The dataset on EmploymentDiscrimination file presents data from the case of United States Department of the Treasury v. Harris Trust and Savings Bank (1981). The data includes the salary of 93 employees of the bank (SALARY), their education level (EDUCAT), and their gender (GENDER).
+
+a) Create a multiple regression model using Salary as the regressand and education level and gender as the regressors. For consistency, let’s use the Male dummy, although as you know, which dummy you use won’t matter.
+
+b) Interpret the differential intercept coefficient and the parameter estimate of the education level. Is there evidence of employment discrimination at the Harris bank?
+
+c) Does the difference in average salaries increase between two groups as education increases? Note: this question means that you want to test for the interaction between education and gender. An alternate formulation of the question is: Does the effect of gender on salary depend on the level of education? Create a new model to answer this question.
+
+d) Create a plot with the two regressions – one for male and another for female. Are these two regressions parallel, coincident, dissimilar, or concurrent?
+
+e) What is the difference between models in part a and part c? Your comparison should include examining the statistical significance of the variables, the adjusted R2, the model standard error, the overall model validity, and the t-test for individual coefficients.
+
+f) Now run a partial F-test to assess the significance of the gender dummy and the interaction term. Are the gender dummy and the interaction term jointly significant in explaining the variation in salaries?
+
+g) Explain what causes the conflicting results in parts e and f above. In other words, why is the statistical significance conflicting between the individual t-test and the Partial F-test? Which model would you settle with?
+
+$$
+Part\ a\  Model:\\
+{SALARY} = \beta_0 + \beta_1 \cdot EDUCAT + \beta_2 \cdot D_{Male} + \epsilon
+$$
+
+$$
+Part\ a\ Estimated\ Regression\ Equation:\\
+\hat{SALARY} = 4173.13 + 80.70 \cdot EDUCAT + 691.81 \cdot D_{Male}
+$$
+
+$$
+Part\ c\  Model\ (Interaction):\\
+\text{SALARY} = \beta_0 + \beta_1 \cdot \text{EDUCAT} + \beta_2 \cdot D_{\text{Male}} + \beta_3 \cdot (\text{EDUCAT} \cdot D_{\text{Male}}) + \epsilon
+$$
+
+
+$$
+Part\ c\ Estimated\ Regression\ Equation:\\
+\hat{SALARY} = 4395.32 + 62.13 \cdot \text{EDUCAT} -274.86 \cdot D_{\text{Male}} + 73.59 \cdot (\text{EDUCAT} \cdot D_{\text{Male}})
+$$
+
+
+$$
+Part\ e\ Overall\ Model\ Validity\ for\ Part\ a\ model\ (F\text-test):\\
+H_0: \beta_1 = \beta_2 = 0\\
+H_1: \text{At least one } \beta_i \neq 0
+$$
+
+
+$$
+Part\ e\ Individual\ Coefficients\ for\ Part\ a\ model\ (t\text-tests):\\
+H_0: \beta_1 = 0\\
+H_1: \beta_1 \neq 0\\
+H_0: \beta_2 = 0\\
+H_1: \beta_2 \neq 0
+$$
+
+
+$$
+Part\ e\ Overall\ Model\ Validity\ for\ Part\ c\ model\ (F\text-test):\\
+H_0: \beta_1 = \beta_2 = \beta_3 = 0\\
+H_1: \text{At least one } \beta_i \neq 0
+$$
+
+
+$$
+Part\ e\ Individual\ Coefficients\ for\ Part\ c\ model\ (t\text-tests):\\
+H_0: \beta_1 = 0\\
+H_1: \beta_1 \neq 0\\
+H_0: \beta_2 = 0\\
+H_1: \beta_2 \neq 0\\
+H_0: \beta_3 = 0\\
+H_1: \beta_3 \neq 0
+$$
+
+
+$$
+Part\ f\  Model\ (Reduced):\\
+\text{SALARY} = \beta_0 + \beta_1 \cdot \text{EDUCAT} + \epsilon
+$$
+
+
+$$
+Part\ f\  Model\ (Full):\\
+\text{SALARY} = \beta_0 + \beta_1 \cdot \text{EDUCAT} + \beta_2 \cdot D_{\text{Male}} + \beta_3 \cdot (\text{EDUCAT} \cdot D_{\text{Male}}) + \epsilon
+$$
+
+
+
+$$Partial\ Ftest\ for\ the\ full\ model\ vs\ reduced\ model:\\H_{0}:\beta_{2}=\beta_{3}=0\\H_{1}:Atleast\ one\ \beta_{i}\ is\ not\ equal\ to\ zero\\or\\H_{0}:The\ reduced\ model\ and\ the\ full\ model\ do\ not\ differ\ significantly,\ so\ choose\ the\ reduced\ model.\\H_{1}:The\ full\ model\ is\ significantly\ better.$$
+
+
+``` {r Question 3}
+#Part a read data and create dummy
+data <- read.csv('EmploymentDiscrimination.csv')
+Male_Dummy <- ifelse(data$GENDER == "MALE", 1, 0)   
+model_a <- lm(data$SALARY ~ data$EDUCAT+Male_Dummy, data=data)
+summary(model_a)
+#Part b 
+cat("Interpretation of Coefficients:\n\n",
+    "The intercept coefficient of 4173.13 suggests that the baseline salary, for a female employee ",
+    "(since gender male is the variable included) with zero education level, is estimated to be $4173.13.\n",
+    "The coefficient for education level (EDUCAT) of 80.70 implies that for each additional unit of education level, ",
+    "an employee's salary is expected to increase by $80.70, holding gender constant.\n",
+    "The gender coefficient (GENDERMALE) of 691.81 indicates that male employees have an estimated average salary ",
+    "that is $691.81 higher than female employees, controlling for the education level.\n",
+    "Given that the p-value for the gender coefficient is significantly less than 0.05, ",
+    "there is statistical evidence to suggest a gender salary gap at Harris Bank, which could be indicative of ",
+    "employment discrimination. However, further analysis would be needed to account for additional factors that might explain the salary differential.\n")
+#Part c create new model and fit
+model_c <- lm(data$SALARY ~ data$EDUCAT+Male_Dummy+Male_Dummy:data$EDUCAT,data=data)
+summary(model_c)
+cat("Interpretation of the Interaction Term:\n\n",
+    "The interaction term coefficient (EDUCAT:Male_Dummy) in the model is 73.59, ",
+    "which suggests that the difference in salaries between males and females potentially increases ",
+    "as education increases. However, the p-value for this interaction term is 0.2503, indicating ",
+    "that the evidence is not statistically significant at conventional levels (such as 0.05). ",
+    "Therefore, we cannot conclusively state that the effect of gender on salary depends ",
+    "on the education based on this data. Further investigation may be required to draw any robust conclusions.\n")
+#Part d
+#subset male and female
+data$Male <- ifelse(data$GENDER == "MALE", 1, 0)
+subset_MALE <- subset(data, data$Male == 1)
+subset_FEMALE <- subset(data, data$Male == 0)
+#Plot interaction plot
+plot(data$EDUCAT, data$SALARY, 
+     main = "Interaction Plot",
+     xlab = "EDUCATION",
+     ylab = "SALARY",
+     col = ifelse(data$Male == 1, "darkorange", "steelblue"))
+legend("bottomright", 
+       pch = c(1, 1), 
+       c("MALE", "FEMALE"), 
+       col = c("darkorange", "steelblue"),
+       cex = 0.5)
+abline(lm(subset_MALE$SALARY ~ subset_MALE$EDUCAT), col = "darkorange")
+abline(lm(subset_FEMALE$SALARY ~ subset_FEMALE$EDUCAT), col = "steelblue")
+cat("Based on the interaction plot provided, the regression lines for males and females are dissimilar,",
+    "indicating that the relationship between education and salary differs between the two genders.",
+    "However, as stated previously, the interaction is not statistically significant.\n")
+#part e
+cat("Comparison between models from parts a and c:\n\n",
+    "- Statistical Significance of Variables: In part a, the coefficients for EDUCAT and Male_Dummy are significant ",
+    "under the 0.1 alpha level. In part c, EDUCAT remains significant, but Male_Dummy and the interaction term ",
+    "EDUCAT:Male_Dummy do not show statistical significance under the 0.1 alpha level.\n",
+    "- Adjusted R-squared: The model in part a has an adjusted R-squared of 0.3492, while part c has an adjusted ",
+    "R-squared of 0.3516, indicating a slight decrease in the proportion of variance explained when including the ",
+    "interaction term.\n",
+    "- Model Standard Error: Part c's model has a slightly lower standard error (571.4) than part a's model (572.4), ",
+    "suggesting a marginally better fit to the data with the interaction term included.\n",
+    "- Overall Model Validity: Both models show overall validity with significant F-statistics. However, the ",
+    "inclusion of the interaction term in part c does not significantly improve the model based on the F-test.\n",
+    "- T-test for Individual Coefficients: While individual coefficients for EDUCAT and Male_Dummy are significant ",
+    "in part a, the significance of Male_Dummy is lost in part c, and the interaction term is not significant, ",
+    "suggesting the simpler model without the interaction term might be more appropriate.\n\n",
+    "In summary, both models identify education as a significant predictor of salary at the 0.1 alpha level. ",
+    "However, the model from part c does not show evidence that the gender effect on salary depends on the level of ",
+    "education, as the interaction term is not significant even under the 0.1 alpha level. The similar adjusted ",
+    "R-squared values and model standard errors suggest that including the interaction term does not substantially ",
+    "improve the explanatory power of the model.\n")
+#Part f fit full model and reduced model, run partial F-test
+full_model<- lm(data$SALARY ~ data$EDUCAT+Male_Dummy+Male_Dummy:data$EDUCAT,data=data)
+reduced_model <- lm(data$SALARY ~ data$EDUCAT, data=data)
+partial_f_test <- anova(reduced_model, full_model)
+print(partial_f_test)
+#Compute partial R^2
+partial_r_sq <- (38460756 - 29054426)/38460756
+partial_r_sq
+cat("Partial F-test Interpretation:\n",
+    "The F-statistic for the comparison of the two models is 14.407 with a highly significant p-value of 0.00003799. ",
+    "This indicates that the gender dummy and the interaction between education and gender provide significant ",
+    "explanatory power to the salary model beyond what is explained by education level alone.\n\n",
+    "Partial R-squared Interpretation:\n",
+    "The partial R-squared value of 0.2445696 reveals that the gender dummy and the interaction term explain ",
+    "an additional 24.46% of the variation in salaries that is not captured by education alone. This substantial ",
+    "increase in explanatory power suggests that gender and its interaction with education are important factors ",
+    "in determining salaries.\n")
+#Part g
+cat("Conflicting significance between the individual t-tests and the partial F-test may be due to collinearity. ",
+    "While t-tests evaluate predictors separately, the F-test assesses their collective influence, which can ",
+    "reveal joint significance even when individual predictors seem non-significant. This suggests that ",
+    "predictors may share variance or have interdependent relationships.\n\n",
+    "Given the partial F-test indicates joint significance, despite collinearity concerns, the full model with ",
+    "the gender dummy and interaction term is preferred for capturing the complexity of salary determinants.\n")
+```
+<font size="5">Question 4</font>
+
+A manager at an ice cream store is trying to determine how many customers to expect on any given day. Overall business has been relatively steady over the past several years, but the customer count seems to have ups and downs. He collects data over 30 days and records the number of customers, the high temperature (in degrees Fahrenheit), and whether the day fell on a weekend (Weekend equals 1 if weekend, 0 otherwise). The data are stored on the Excel file Ice Cream.
+a) Estimate the multiple regression model Customers = β0 + β1Temperature + β2Weekend + u.
+b) How many customers should the manager expect on a Sunday with a forecasted high temperature of 80◦?
+c) Interpret the estimated coefficient for Weekend. Is it significant at the 5% level? Write your hypotheses for this test. How might this affect the store’s staffing needs?
+
+$$
+Part\ a\  Model:\\
+Customers = \beta_0 + \beta_1 \cdot Temperature + \beta_2 \cdot Weekend + u
+$$
+
+
+$$
+Part\ a\ Estimated\ Regression\ Equation:\\
+\hat{Customers} = -74.69 + 6.96 \cdot Temperature + 201.87 \cdot Weekend
+$$
+
+$$
+Part\ c\ two\text-tailed\ t\text-test:\\
+H_0: \beta_{2} = 0\\
+H_1: \beta_{2} \neq 0
+$$
+
+
+```{r Question 4}
+#Part a
+library(readxl)
+library(dplyr)
+# Load the data from the Excel file
+data <- read_excel("Ice_Cream.xlsx")
+# Fit the regression model
+model <- lm(Customers ~ Temperature + Weekend, data = data)
+# Output the model summary
+summary(model)
+# Interpret the results
+cat("The estimated multiple regression model is shown above\n")
+#Part b
+#Prediction interval
+predicted_customers <- predict(model,  data.frame(Temperature = 80, Weekend = 1),interval = "prediction", level = 0.95)
+predicted_customers
+cat("The manager should expect approximately ", round(predicted_customers[1], 0), 
+    " customers on a Sunday with a forecasted high temperature of 80 degrees Fahrenheit.\n\n")
+#Part c
+# Interpret the estimated coefficient for Weekend
+cat("The estimated coefficient for Weekend is 201.87 which is significant at the 5% level (p-value < 0.0001).\n")
+cat("The hypotheses for this test are written above\n")
+cat("Given the significant coefficient for Weekend, the store may need to consider adjusting staffing needs on weekends to accommodate approximately 202 additional customers, on average, compared to weekdays.\n")
+
+```
+<font size="5">Question 5</font>
+
+Question 5 (10 points)
+The data set in the CSV file Fisher Index gives data on the annual rate of return Y (%) on a mutual fund and a return on a market portfolio as represented by the Fisher Index, X (%). Now consider the following model, which is known in the finance literature as the characteristic line.
+Yt = β1 + β2Xi + ui
+In the literature there is no consensus about the prior value of β1. Some studies have shown it to be positive and statistically significant and some have shown it to be statistically insignificant. In the latter case, the above model becomes a regression-through-the-origin model, which can be written as
+Yt = β2Xi + ui
+Use the data given to estimate both these models and decide which model fits the data better.
+As discussed in the class briefly, for the regression-through-the-origin regression model the conventionally computed R2 may not be meaningful. One suggested alternative for such models is the so-called “raw” R2, which is defined (for the two-variable case) as follows:
+Raw R2 = (ΣXiYi)2 Σ X i2 Σ Y i 2
+If you compare the raw R2 with the conventional R2, you will see that the sums of squares and cross-products in the raw R2 are not mean-corrected. For the interceptless model shown above, compute the raw R2. Compare this with the R2 value that you obtained from the model with intercept. What conclusions can you draw?
+
+$$
+Conventional\ Model:\\
+Y_t = \beta_1 + \beta_2 X_i + u_i
+$$
+
+$$
+Conventional\ Model\ Estimated\ Regression\ Equation:\\
+\hat{Y}_t = 1.2797 + 1.0691X_i
+$$
+
+
+$$
+Regression\text-through\text-origin\ Model:\\
+Y_t = \beta_2 X_i + u_i
+$$
+
+$$
+Regression\text-through\text-origin\ Model\ Estimated\ Regression\ Equation:\\
+\hat{Y}_t = 1.0899X_i
+$$
+
+
+
+```{r Question 5}
+# Read the data
+data <- read.csv("Fisher Index.csv")
+# Fit the model with an intercept
+model_with_intercept <- lm(Y ~ X, data = data)
+summary(model_with_intercept)
+# Fit the model without an intercept (regression-through-the-origin)
+model_without_intercept <- lm(Y ~ X + 0, data = data)
+summary(model_without_intercept)
+# Compute the conventional R^2 for the model with intercept
+conventional_R2 <- summary(model_with_intercept)$r.squared
+# Compute the raw R^2 for the model without intercept
+X <- data$X
+Y <- data$Y
+raw_R2 <- (sum(X * Y)^2) / (sum(X^2) * sum(Y^2))
+cat("Conventional R^2 for the model with intercept: ", conventional_R2, "\n")
+cat("Raw R^2 for the model without intercept: ", raw_R2, "\n")
+# Interpret the R^2 values
+cat("The raw R^2 for the model without an intercept is higher (0.782) compared to the conventional R^2 for the model with an intercept (0.716).\n")
+cat("This suggests that, in terms of variance explained, the model without an intercept might seem preferable. However, this does not automatically make it the better model.\n")
+cat("Theoretical justification and other statistical diagnostics should be considered to determine the most appropriate model for the data.\n")
+```
+<font size="5">Question 6</font>
+
+Question 6 (10 points)
+The data set on the CSV file CorporateFinancials gives data on after-tax corporate profits and net corporate
+dividend payments ($, in billions) for the United States for the quarterly period of 1997:1 to 2008:2.
+a) Regress dividend payments (Y) on after-tax corporate profits (X) to find out if there is a relationship between the two.
+b) To see if the dividend payments exhibit any seasonal pattern, develop a suitable dummy variable regression model and estimate it. In developing the model, how would you take into account that the intercept as well as the slope coefficient may vary from quarter to quarter?
+c) Based on your results, what can you say about the seasonal pattern, if any, in the dividend payment policies of U.S. private corporations? Is this what you expected a priori?
+
+$$
+Part\ a\ Model:\\
+Y_t = \beta_0 + \beta_1 X_t + u_t
+$$
+
+$$
+Part\ a\ Estimated\ Regression\ Equation:\\
+\hat{Y_t} = -19.01325 + 0.63112 \cdot X_t
+$$
+
+
+
+$$
+Part\ b\ Model:\\
+Y_t =  \beta_0 + \beta_1 X_t + \beta_2 D_{2t} + \beta_3 D_{3t} + \beta_4 D_{4t}
+       + \beta_5 (X_t \cdot D_{2t}) + \beta_6 (X_t \cdot D_{3t}) + \beta_7 (X_t \cdot D_{4t}) + u_t
+$$
+
+$$
+Part\ b\ Estimated\ Regression\ Equation:\\
+\hat{Y_t} = -16.27987 + 0.62121 \cdot X_t - 7.96650 \cdot D_{2t} + 22.20074 \cdot D_{3t} - 28.15463 \cdot D_{4t} + 0.01558 \cdot (X \cdot D_{2t}) - 0.02169 \cdot (X \cdot D_{3t}) + 0.04902 \cdot (X \cdot D_{4t})
+$$
+
+
+
+
+```{r Question 6}
+# Part a
+# Read the data
+financials <- read.csv("CorporateFinancials.csv")
+# Linear regression model
+model <- lm(financials$Dividend ~ financials$After_Tax_Profit, data = financials)
+# Summarize the results
+summary(model)
+cat("Part a) Regression Interpretation:\n",
+    "The estimated regression model is Y = -19.01325 + 0.63112 * After-Tax_Profit.\n",
+    "The intercept is not statistically significant, indicating the baseline dividend payments ",
+    "when profits are zero cannot be reliably estimated from this model.\n",
+    "The slope coefficient for After-Tax_Profit is significant (p < 0.0001), suggesting a strong ",
+    "positive relationship between profits and dividend payments. For every additional billion dollars ",
+    "in profit, there is an expected increase in dividend payments of approximately 0.631 billion dollars.\n",
+    "With a high Multiple R-squared value of 0.9035, the model explains 90.35% of the variance in dividend ",
+    "payments, indicating a strong fit to the data.\n")
+# Part b
+# Create dummy variables for quarters
+Q2 <- ifelse(financials$Quarter == 2, 1, 0)
+Q3 <- ifelse(financials$Quarter == 3, 1, 0)
+Q4 <- ifelse(financials$Quarter == 4, 1, 0)
+# Regression model with dummy variables and interactions
+seasonal_model <- lm(financials$Dividend ~ financials$After_Tax_Profit + Q2 + Q3 + Q4 + financials$After_Tax_Profit:Q2 + financials$After_Tax_Profit:Q3 + financials$After_Tax_Profit:Q4, data = financials)
+# Summarize the results
+summary(seasonal_model)
+financials$time <- 1:nrow(financials)
+#Plot
+plot_line_chart(financials,'time','Dividend')
+cat("Part b) Interpretation:\n",
+    "The regression model with quarterly dummies and interaction terms was estimated to assess seasonal patterns ",
+    "in dividend payments. The coefficients for the quarterly dummies (Q2, Q3, Q4) and their interactions with ",
+    "after-tax profits (X) are not statistically significant (p-values: Q2 = 0.917, Q3 = 0.777, Q4 = 0.728, ",
+    "X:Q2 = 0.863, X:Q3 = 0.817, X:Q4 = 0.609). This suggests that there is no statistical evidence of a seasonal ",
+    "pattern affecting dividend payments, and that the effect of after-tax profits on dividend payments does not ",
+    "significantly vary from quarter to quarter.\n\n",
+    "This indicates that the intercept (baseline level of dividend payments) and the slope coefficient (change in ",
+    "dividend payments per unit change in after-tax profits) are stable across different quarters. Thus, U.S. private ",
+    "corporations do not seem to follow a seasonal pattern in their dividend payment policies based on this analysis.\n")
+
+# Part c
+cat("Part c) Seasonal Pattern Interpretation:\n",
+    "The regression analysis with dummy variables for quarters and their interactions with after-tax profits ",
+    "indicates that there is no statistically significant seasonal pattern in dividend payments. The coefficients ",
+    "for the seasonal dummies and their interactions with after-tax profits are not significant, suggesting that ",
+    "dividend payments do not vary systematically across different quarters.\n\n",
+    "This finding may come as a surprise if one were to expect that dividend payments would be higher in particular ",
+    "quarters due to fiscal or calendar year-end financial activities commonly associated with U.S. private corporations. ",
+    "However, based on this statistical analysis, it appears that such seasonal fluctuations are not present in the ",
+    "dividend payment policies within the data period analyzed.\n")
+```
+<font size="5">Question 7</font>
+
+Question 7 (10 points)
+The marketing manager at CleanLawns, a lawn mower company, believes that monthly sales across all outlets (stores, online, etc.) are influenced by three key variables: (1) outdoor temperature (in ◦F), (2) advertising expenditures (in $1,000s), and (3) promotional discounts (in %). The CSV data file Mowers shows monthly sales data over the past two years.
+a) Estimate the model
+Sales = β0 + β1 T emperature + β2 Advertising + β3 Discount + u.
+Test for the joint and individual significance of the explanatory variables at the 5% level.
+b) Examine the data for evidence of multicollinearity. Provide two reasons why it might be best to do nothing about multicollinearity in this application.
+
+$$
+\text{Sales} = \beta_0 + \beta_1 \cdot \text{Temperature} + \beta_2 \cdot \text{Advertising} + \beta_3 \cdot \text{Discount} + u
+$$
+
+$$
+\hat{\text{Sales}} = -1730.1 + 303.0 \cdot \text{Temperature} + 505.6 \cdot \text{Advertising} + 202.2 \cdot \text{Discount}
+$$
+
+```{r Question 7}
+library(car)
+#Part a read data
+mowers_data <- read.csv('Mowers.csv')
+model <- lm(Sales ~ Temperature + Advertising + Discount, data = mowers_data)
+# Output the model summary for individual significance
+summary(model)
+# Conduct an F-test for joint significance
+anova(model)
+# Check for multicollinearity
+vif_values <- vif(model)
+cat("VIF Values:\n")
+print(vif_values)
+cat("Part a) Regression Analysis Interpretation:\n",
+    "The estimated regression model for CleanLawns is given by:\n",
+    "Sales = -1730.1 + 303.0 * Temperature + 505.6 * Advertising + 202.2 * Discount\n\n",
+    "Individual Coefficient Significance:\n",
+    "- The coefficient for Temperature is not statistically significant at the 5% level (p-value: 0.1008).\n",
+    "- The coefficient for Advertising is significant at the 5% level (p-value: 0.0107), indicating that ",
+    "increases in advertising expenditures are associated with an increase in sales.\n",
+    "- The coefficient for Discount is not statistically significant at the 5% level (p-value: 0.5348).\n\n",
+    "Joint Significance of Explanatory Variables:\n",
+    "The F-statistic for the overall model is 110.5 with a p-value of less than 0.0001, which is highly significant. ",
+    "This suggests that the explanatory variables jointly have a significant effect on Sales.\n\n",
+    "VIF Interpretation for Multicollinearity:\n",
+    "The VIF values for Temperature (9.607405), Advertising (18.430557), and Discount (4.816958) suggest ",
+    "that multicollinearity may be present, particularly with Advertising, which has a VIF substantially higher ",
+    "than 10. However, since the goal is to predict monthly sales, and Advertising is a significant predictor, ",
+    "we might choose not to address multicollinearity in this context.\n")
+cat("Upon examining the VIF values, we find evidence suggesting multicollinearity, particularly with Advertising. ",
+    "However, there are two reasons why it may be best to leave the model unchanged:\n",
+    "1. The goal of CleanLawns is likely to predict sales accurately rather than interpret the coefficients' sizes. ",
+    "Multicollinearity does not bias predictions, so if predictive accuracy remains high, intervention may not be necessary.\n",
+    "2. Advertising expenditures and temperature are likely important for understanding sales. Omitting either variable ",
+    "to reduce multicollinearity could lead to the exclusion of significant factors, affecting the model's ",
+    "overall explanatory power and potentially leading to biased estimates of other coefficients.\n")
+
+
+```
+
+<font size="5">Question 8</font>
+
+
+Refer to the Excel file PersExpAndCategories which contains the Total Personal Consumption Expenditures and Categories. Find the rate of growth of expenditure on durable goods. What is the estimated semielasticity? Interpret your results. Would it make sense to run a double-log regression with expenditure on durable goods as the regressand and time as the regressor? How would you interpret the slope coefficient in this case?
+
+$$
+\text{log-lin Model:}\\
+\ln(\text{EXPDUR}) = \beta_0 + \beta_1 \cdot \text{Time} + \epsilon
+$$
+
+$$
+\text{Estimated Regression Equation log-lin Model:}\\
+\hat{\ln(\text{EXPDUR})} = 6.8949842 + 0.0139948 \cdot \text{Time}
+$$
+
+$$
+\text{log-log Model:}\\
+\ln(\text{EXPDUR}) = \beta_0 + \beta_1 \cdot \ln(\text{Time}) + \epsilon
+$$
+
+$$
+\text{Estimated Regression Equation log-log Model:}\\
+\hat{\ln(\text{EXPDUR})} = 6.859521 + 0.079261 \cdot \ln(\text{Time})
+$$
+
+
+
+
+
+
+
+```{r Question 8}
+library(readxl)
+library(dplyr)
+library(tidyr)
+# Load the data from the Excel file
+expenditures <- read_excel("PersExpAndCategories.xlsx", range = "A5:E20")
+colnames(expenditures)
+colnames(expenditures)[1] <- "YearQuarter"
+# Deal with the year quarter column
+expenditures <- expenditures %>%
+  mutate(
+    Year = as.numeric(sub("-.*", "", YearQuarter)), # Extract the year
+    Quarter = case_when(
+      grepl("-I$", YearQuarter) ~ 1,
+      grepl("-II$", YearQuarter) ~ 2,
+      grepl("-III$", YearQuarter) ~ 3,
+      grepl("-IV$", YearQuarter) ~ 4
+    ),
+    Time = (Year - min(Year)) * 4 + Quarter # Create a time variable
+  )
+#Plot scatter plot EXPDUR vs Time
+plot_scatter_with_both_lines(expenditures,"Time","EXPDUR")
+#Fit the semilog model and plot and return lm results
+fit_and_plot_model(expenditures,c("Time"),"EXPDUR",model_type = "log-lin")
+#Compute compound growth rate
+compound_growth_rate <- (exp(0.0139948) - 1) * 100
+compound_growth_rate
+cat("Model Estimation Results Interpretation:\n",
+    "The regression model estimates the natural logarithm of expenditure on durable goods as a function of time, ",
+    "with time measured in quarters. The coefficient for Time is 0.0139948, which is the semielasticity of the ",
+    "expenditure with respect to time. It indicates the instantaneous percentage change in expenditure on durable goods ",
+    "for a one-quarter increase in time.\n\n",
+    "To interpret this as a compound quarterly growth rate, we exponentiate the coefficient: ",
+    "(exp(0.0139948) - 1) * 100, which gives approximately 1.41%. This value suggests that, on average, ",
+    "expenditure on durable goods grows by about 1.41% each quarter when the growth compounding effect is considered.\n\n",
+    "The significance of the coefficient (p-value < 0.0001) implies strong evidence of a positive growth trend over time. ",
+    "The Adjusted R-squared value of 0.9453 indicates that the model explains most of the variability in the ",
+    "expenditure on durable goods, denoting a good fit of the model.\n\n",
+    "In summary, the model's findings demonstrate a consistent and statistically significant compound growth in ",
+    "expenditure on durable goods quarter over quarter, with a semielasticity of 1.39948% per quarter.")
+#Fit the double-log model and plot and return lm results
+fit_and_plot_model(expenditures,c("Time"),"EXPDUR",model_type = "log-log")
+cat("The application of a log-log regression model to assess the relationship between time and expenditure on durable goods warrants caution. ",
+    "Typically, using a logarithmic transformation for a time variable is unconventional because time does not scale proportionally; it progresses in fixed intervals, such as quarters or years. ",
+    "The coefficient of 0.079261 for log(Time) in this model would normally be interpreted as an elasticity; however, this interpretation is questionable when applied to time. ",
+    "The term elasticity implies a percentage change response to a percentage change predictor, which is meaningful for variables like price or income but is conceptually problematic for time.\n\n",
+    "Despite the statistical significance of the time coefficient and the high Adjusted R-squared value, caution must be exercised before drawing conclusions about the elasticity of expenditure with respect to time. ",
+    "In this instance, the estimated coefficient may not represent a true elasticity in the economic sense. Instead, it suggests that if the time variable were to increase by 1%—a hypothetical scenario since time does not grow in percentage terms—the model predicts a 0.079261% increase in expenditure. ",
+    "Such an interpretation is not meaningful for time and could lead to erroneous conclusions.\n\n",
+    "The high explanatory power of the model, indicated by the Adjusted R-squared value of 0.9256, does confirm a strong relationship between the variables. However, the model's format should be carefully reconsidered. ",
+    "For time-series data, alternative models like log-linear or linear trend models might be more appropriate and would avoid the interpretive challenges posed by a log-log specification with time as a regressor.")
+
+```
+<font size="5">Question 9</font>
+
+Question 9 (20 points)
+Consider the data on the weekly stock prices of Qualcomm, Inc., a digital wireless telecommunications designer and manufacturer over the time period of 1995 to 2000. The full data is available on the Excel file Qualcomm. During the late 1990, technological stocks were particularly profitable, but what type of regression model will best fit these data?
+a) Create a time plot of the stock prices. Describe the pattern you observe.
+b) Estimate a linear model to predict the closing stock price based on time. Does this model seem to fit the data well?
+c) Now estimate a quadratic model. Is this a better fit than the linear model?
+d) Next, estimate the cubic model.
+e) Out of the three models, which one best fits the data?
+
+$$
+\text{Linear Model:}\\
+\text{Close} = \beta_0 + \beta_1 \cdot \text{time} + \epsilon
+$$
+
+$$
+\text{Estimated Regression Equation Linear Model:}\\
+\hat{Close} = -4.69406 + 0.58051 \cdot \text{time}
+$$
+
+
+$$
+\text{Quadratic Model:}\\
+\text{Close} = \beta_0 + \beta_1 \cdot \text{time} + \beta_2 \cdot \text{time}^2 + \epsilon
+$$
+
+$$
+\text{Estimated Regression Equation Quadratic Model:}\\
+\hat{Close} = 71.063 + 702.552 \cdot \text{time} + 551.569 \cdot \text{time}^2
+$$
+
+
+$$
+\text{Cubic Model:}\\
+\text{Close} = \beta_0 + \beta_1 \cdot \text{time} + \beta_2 \cdot \text{time}^2 + \beta_3 \cdot \text{time}^3 + \epsilon
+$$
+
+$$
+\text{Estimated Regression Equation Cubic Model:}\\
+\hat{Close} = 71.06 + 702.55 \cdot \text{time} + 551.57 \cdot \text{time}^2 + 497.50 \cdot \text{time}^3
+$$
+
+
+
+
+
+```{r Question 9}
+library(readxl)
+#Part a Read data and plot
+df <- read_excel("Qualcomm.xlsx", range ="A3:C263")
+#Plot scatter
+plot_scatter_with_both_lines(df,'time','Close')
+cat("a) The time plot of Qualcomm's weekly stock prices shows a nonlinear trend, possibly quadratic or cubic, indicating that the stock prices have been increasing at a changing rate over time.\n")
+
+#Part b
+#Fit linear model
+fit_and_plot_model(df,c('time'),'Close',model_type = "linear")
+cat("b) The linear model, with an R-squared of 0.3847, suggests a moderate fit to the data. However, the scatter plot and the pattern of residuals might indicate that the model does not capture the curvature observed in the data.\n")
+#Part c
+fit_and_plot_model(df,c('time'),'Close',model_type = "polynomial", degree = 2)
+cat("c) The quadratic model has a higher R-squared value of 0.6218, which is an improvement over the linear model. This suggests that the quadratic model fits the data better, capturing some of the curvature evident in the time plot.\n")
+#Part d
+fit_and_plot_model(df,c('time'),'Close',model_type = "polynomial", degree = 3)
+cat("d) The cubic model further improves the fit, with an R-squared of 0.8147, indicating that it captures even more of the variability in the stock prices. The coefficients for the cubic term are significant, suggesting the presence of a more complex, nonlinear trend in the data.\n")
+#Part e
+cat("e) Among the three models, the cubic model appears to fit the data best, as indicated by the highest R-squared value and the visual alignment with the scatter plot. This model is likely to be the most appropriate for capturing the complex dynamics of Qualcomm's stock prices during the late 1990s.\n")
+```
+
+
+<font size="5">Question 10</font>
+
+Question 10 (15 points)
+The data file PickErrors shows an employee’s annual pick errors (Errors), experience (Exper in years), and
+whether or not the employee attended training (Train equals 1 if the employee attended training, 0 otherwise).
+a) Run a multiple regression model assessing the effect that experience and training has on pick errors. Is the
+training variable significant at the 10% significance level?
+b) Check if the effect that training has on pick errors is affected by experience. Are the variables significant at the 10% significance level?
+c) Use the chosen model to predict the number of pick errors for an employee with 10 years of experience who attended the training program, and for an employee with 20 years of experience who did not attend the training program.
+
+\text{Model without Interaction:}
+$$
+\text{Errors} = \beta_0 + \beta_1 \cdot \text{Exper} + \beta_2 \cdot \text{Train} + \varepsilon
+$$
+
+
+\text{Estimated Equation:}
+$$
+\hat{\text{Errors}} = 37.9305 - 1.2814 \cdot \text{Exper} - 7.4241 \cdot \text{Train}
+$$
+
+\text{Model with Interaction:}
+$$
+\text{Errors} = \beta_0 + \beta_1 \cdot \text{Exper} + \beta_2 \cdot \text{Train} + \beta_3 \cdot (\text{Exper} \times \text{Train}) + \varepsilon
+$$
+
+
+\text{Estimated Equation:}
+$$
+\hat{\text{Errors}} = 42.7764 - 1.6991 \cdot \text{Exper} - 23.1111 \cdot \text{Train} + 0.9785 \cdot (\text{Exper} \times \text{Train})
+$$
+
+
+
+
+
+```{r Question 10}
+library(readxl)
+data_frame <- read_excel('PickErrors.xlsx')
+# Part a Run the multiple regression model
+model <- lm(Errors ~ Exper + Train, data = data_frame)
+summary(model)
+cat("a) In the multiple regression model without interaction, experience significantly reduces pick errors (p < 0.0001), while training does not show a significant effect at the 10% level (p = 0.142). The model explains approximately 59.23% of the variability in pick errors (R-squared = 0.5923).\n")
+
+# Part b Check the interaction effect
+model_interaction <- lm(Errors ~ Exper*Train, data = data_frame)
+summary(model_interaction)
+subset_Train <- subset(data_frame, data_frame$Train == 1)
+subset_Untrain <- subset(data_frame, data_frame$Train == 0)
+#Plot interaction plot
+plot(data_frame$Exper, data_frame$Errors, 
+     main = "Interaction Plot",
+     xlab = "EXPERIENCE",
+     ylab = "ERRORS",
+     col = ifelse(data_frame$Train == 1, "darkorange", "steelblue"))
+legend("bottomright", 
+       pch = c(1, 1), 
+       c("TRAIN", "UNTRAIN"), 
+       col = c("darkorange", "steelblue"),
+       cex = 0.5)
+abline(lm(subset_Train$Errors ~ subset_Train$Exper), col = "darkorange")
+abline(lm(subset_Untrain$Errors ~ subset_Untrain$Exper), col = "steelblue")
+cat("b) When the interaction term is included, the model's explanatory power increases (R-squared = 0.6445). The interaction between experience and training is marginally significant (p = 0.0615). Given the principle of marginality, which suggests that main effects should not be interpreted without considering interaction effects, the significance of the interaction term implies that the effect of training on pick errors varies with the level of experience. In this context, the main effect of training alone is not interpreted, as its effect is not constant across levels of experience.\n")
+
+# Part c Predict the number of pick errors
+new_data <- data.frame(Exper = c(10, 20), Train = c(1, 0))
+predictions <- predict(model_interaction, new_data, level=0.9)
+# Print the predictions
+print(predictions)
+cat("c) Based on the model with the interaction term, the predicted number of pick errors for an employee with 10 years of experience who attended the training program is approximately 12.46. For an employee with 20 years of experience who did not attend the training program, the predicted number of errors is approximately 8.79. These predictions take into account the combined effect of experience and training on pick errors.\n")
+
+```
+
+<font size="5">Question 11</font>
+
+Question 11 (20 points)
+A computer repair service is examining the time taken on service calls to repair computers. Data are obtained for 30 service calls and are available on the Excel file CompRepair. The variables include X1 = number of machines to be repaired (NUMBER), X2 = years of experience of service person (EXPER), and Y = time taken (in minutes) to provide service (TIME). Develop a polynomial regression model to predict average time on the service calls using EXPER and NUMBER as explanatory variables. Justify your model choice including transformations of any variables.
+
+\text{Quadratic Regression Model without Interaction:}
+$$
+\text{TIME} = \beta_0 + \beta_1 \cdot \text{NUMBER} + \beta_2 \cdot \text{NUMBER}^2 + \beta_3 \cdot \text{EXPER} + \varepsilon
+$$
+
+
+\text{Estimated Equation:}
+$$
+\hat{\text{TIME}} = 428.4109 + 1572.0239 \cdot \text{NUMBER} + 350.7563 \cdot \text{NUMBER}^2 + 0.3712 \cdot \text{EXPER}
+$$
+
+
+```{r Question 11}
+library(readxl)
+data_frame <- read_excel('CompRepair.xlsx')
+#Assess data
+plot_scatter_with_both_lines(data_frame,'NUMBER','TIME')
+plot_scatter_with_both_lines(data_frame,'EXPER','TIME')
+# Develop the polynomial regression model
+model <- lm(TIME ~ poly(NUMBER, 2) + EXPER, data = data_frame)
+summary(model)
+# Assess interaction
+model_interaction <- lm(TIME ~ poly(NUMBER, 2) * EXPER, data = data_frame)
+summary(model_interaction)
+#Compare with different models
+model2 <- lm(TIME ~ poly(NUMBER, 3) + EXPER, data = data_frame)
+summary(model2)
+model3 <- lm(TIME ~NUMBER + EXPER, data = data_frame)
+summary(model3)
+# Interpretation and justification for the model without interaction
+cat("For the polynomial regression model without interaction, the coefficients for both linear and quadratic terms of NUMBER are highly significant (p < 0.0001), indicating that both the number of machines and the square of this number are important predictors of the time taken on service calls. The adjusted R-squared value is very high (0.9974), suggesting that the model explains nearly all the variability in the service times. The EXPER coefficient is not significant (p = 0.9), suggesting that experience alone does not have a strong linear effect on the time taken when NUMBER is also in the model.\n\n")
+
+# Interpretation for the model with interaction
+cat("For the polynomial regression model with interaction terms, we notice that the interaction terms poly(NUMBER, 2)1:EXPER and poly(NUMBER, 2)2:EXPER have high p-values (p = 0.8856 and p = 0.8000, respectively), which suggests that the interaction between the number of machines and experience does not significantly affect the time taken on service calls. The adjusted R-squared value for this model is also very high (0.9972). However, given the principle of parsimony and the non-significant interaction terms, the simpler model without interaction may be preferred for predicting service call time.\n\n")
+
+cat("The cubic polynomial model has an exceptionally high R-squared value (0.9977), suggesting that the model explains nearly all of the variability in the service times. The significant coefficients for the poly(NUMBER, 3)1 and poly(NUMBER, 3)2 terms indicate that the number of machines to be repaired has a non-linear relationship with the time taken for service calls. The non-significance of the cubic term (poly(NUMBER, 3)3 with p = 0.877) and the EXPER term (p = 0.879) suggests that these variables may not contribute additional explanatory power beyond the quadratic term. The justification for not including a cubic term for NUMBER and excluding EXPER entirely could be based on these results, preferring a quadratic model that balances fit and parsimony.\n\n")
+
+cat("The linear model, on the other hand, has a lower R-squared value (0.9514), which still indicates a good fit to the data. The coefficient for NUMBER is highly significant (p < 0.0001), while the coefficient for EXPER is not (p = 0.444). This result implies that while the number of machines to be repaired is a strong predictor of service time, the years of experience of the service person may not be linearly related to service time. Given the simpler nature of the linear model, it may be preferred for its interpretability and ease of use, despite the slightly lower R-squared value compared to the cubic model.\n\n")
+
+# Final recommendation
+cat("In conclusion, the cubic model may be overfitting the data due to the high complexity and the non-significant cubic term. The linear model, while simpler, may not capture the full complexity of the relationship as indicated by the scatter plots. Therefore, a quadratic model, which was not provided but implied by the analysis, would likely be a better choice. It would capture the apparent non-linearity in the relationship without the overfitting risk of higher-order polynomials.\n")
+
+
+```
+
+<font size="5">Question 12</font>
+
+Question 12 (20 points)
+The dataset GermanMoneySupply provides data on the Consumer Price Index (CPI), Y (1980=100), and the
+money supply, X (billions of German marks), for Germany for the years 1971 to 1987.
+a) Regress the following:
+(i) Y onX
+(ii) lnY onlnX
+(iii) ln Y on X 
+(iv) Y onlnX
+b) Interpret each estimated regression.
+c) For each model, find the rate of change of Y with respect to X. (Refer to the summary of functional forms on my Regression - Part 3 note.)
+d) For each model, find the elasticity of Y with respect to X. For some of these models, the elasticity is to be computed at the mean values of Y and X. (Refer to the summary of functional forms on my Regression - Part 3 note.)
+
+#### Simple Linear Regression Model
+- Population Regression Function:
+  $$ Y = \beta_0 + \beta_1X + \varepsilon $$
+- Estimated Regression Equation:
+  $$ \hat{Y} = 38.96907 + 0.26088X $$
+  
+#### Log-Log Regression Model
+- Population Regression Function:
+  $$ \log(Y) = \beta_0 + \beta_1\log(X) + \varepsilon $$
+- Estimated Regression Equation:
+  $$ \log(\hat{Y}) = 1.40405 + 0.58896\log(X) $$
+
+#### Log-Lin Regression Model
+- Population Regression Function:
+  $$ \log(Y) = \beta_0 + \beta_1X + \varepsilon $$
+- Estimated Regression Equation:
+  $$ \log(\hat{Y}) = 3.9315778 + 0.0027988X $$
+
+#### Lin-Log Regression Model
+- Population Regression Function:
+  $$ Y = \beta_0 + \beta_1\log(X) + \varepsilon $$
+- Estimated Regression Equation:
+  $$ \hat{Y} = -192.966 + 54.213\log(X) $$
+  
+
+```{r Question 12}
+library(readxl)
+#Read data
+data <- read_excel("GermanMoneySupply.xlsx", range='A5:C22')
+# a) Regressions
+# (i) Y on X
+model_i <- lm(Y ~ X, data = data)
+# (ii) ln(Y) on ln(X)
+model_ii <- lm(log(Y) ~ log(X), data = data)
+# (iii) ln(Y) on X
+model_iii <- lm(log(Y) ~ X, data = data)
+# (iv) Y on ln(X)
+model_iv <- lm(Y ~ log(X), data = data)
+# b) Interpret each estimated regression
+summary(model_i)
+summary(model_ii)
+summary(model_iii)
+summary(model_iv)
+# Model (i) Y on X Interpretation
+cat("In Model (i), the coefficient for X is 0.26088, suggesting a strong positive impact of the money supply on CPI. This is confirmed by the R-squared value of 0.9423, indicating a very high proportion, 94.23%, of the CPI's variability is explained by the model. The excellent GOF is further evidenced by the significant F-statistic of 245.1, affirming the model's predictive power and reliability in explaining the relationship between CPI and money supply.\n")
+# Model (ii) ln(Y) on ln(X) Interpretation
+cat("Model (ii) shows an elasticity coefficient of 0.58896, indicating a less than one-to-one elastic relationship where a 1% increase in money supply is expected to increase the CPI by approximately 0.58896%. With an R-squared of 0.9642, this model accounts for 96.42% of the variation in CPI, providing strong evidence of the model's explanatory capabilities. The GOF, supported by the F-statistic of 403.6, confirms that the log-log model fits the data exceedingly well and reliably captures the proportional changes in the variables.\n")
+# Model (iii) ln(Y) on X Interpretation
+cat("For Model (iii), the coefficient for X is very small (0.0027988), indicating a minute increase in CPI for each additional unit of money supply. However, the high R-squared value of 0.9284 suggests that the model still explains a large majority of the variability in CPI, highlighting its substantial explanatory power. Despite the small coefficient, the GOF is validated by a high F-statistic of 194.6, indicating that the relationship between the money supply and CPI is statistically significant and the model predictions are reliable.\n")
+# Model (iv) Y on ln(X) Interpretation
+cat("Model (iv) has a coefficient of 54.213 for log(X), suggesting a substantial increase in CPI for each 1% increase in the money supply. The R-squared value is 0.9543, which means the model explains 95.43% of the CPI's variation, demonstrating a strong fit. The GOF is robust, as indicated by a significant F-statistic of 313.4, underscoring the model's effectiveness in capturing the exponential effect of changes in the money supply on the CPI.\n")
+
+# c) Rate of change of Y with respect to X
+# For linear model
+cat("Rate of Change for Linear Model: 0.26088\n")
+
+# For log-log model
+cat("Rate of Change for Log-Log Model: 0.58896 * (Y/X)\n")
+
+# For log-lin model
+cat("Rate of Change for Log-Lin Model: 0.0027988 * Y\n")
+
+# For lin-log model
+cat("Rate of Change for Lin-Log Model: 54.213 / X\n")
+
+# d) Elasticity of Y with respect to X
+# Calculate the mean values from the dataset
+mean_Y <- mean(data$Y)
+mean_X <- mean(data$X)
+#Elasticities
+elasticity_linear <- coef(model_i)["X"] * (mean_X / mean_Y)
+elasticity_loglog <- coef(model_ii)["log(X)"]
+elasticity_loglin <- coef(model_iii)["X"] * mean_X
+elasticity_linlog <- coef(model_iv)["log(X)"] / mean_Y
+
+# Printing the elasticity for each model
+cat("Elasticity for Linear Model at Mean Values:", elasticity_linear, "\n")
+cat("Elasticity for Log-Log Model at Mean Values:", elasticity_loglog, "\n")
+cat("Elasticity for Log-Linear Model at Mean Values:", elasticity_loglin, "\n")
+cat("Corrected Elasticity for Lin-Log Model at Mean Values:", elasticity_linlog, "\n")
+```
+
+<font size="5">Question 13</font>
+
+
+Question 13 (20 points)
+The data analyst working at a pharmaceutical company wants to build a regression model to forecast monthly electricity cost (Cost in $). Three main variables are thought to influence electricity cost: (1) average outdoor temperature (Temp in ◦F), (2) working days per month (Days), and (3) tons of product produced (Tons). The data are available on the file ElectricityCost.
+a) Estimate the linear model: Cost = β0 + β1Temp + β2Days + β3Tons + u.
+b) Estimate the exponential model: ln(Cost) = β0 + β1Temp + β2Days + β3Tons + u.
+c) Based on R2, which model provides a better fit?
+
+#### Linear Model
+
+$$
+\text{Cost} = \beta_0 + \beta_1 \text{Temp} + \beta_2 \text{Days} + \beta_3 \text{Tons} + u
+$$
+
+$$
+\hat{\text{Cost}} = 14039.19 + 92.78 \times \text{Temp} + 446.14 \times \text{Days} - 27.00 \times \text{Tons}
+$$
+
+#### Exponential Model
+
+$$
+\ln(\text{Cost}) = \beta_0 + \beta_1 \text{Temp} + \beta_2 \text{Days} + \beta_3 \text{Tons} + u
+$$
+
+$$
+\ln(\hat{\text{Cost}}) = 9.700423 + 0.003404 \times \text{Temp} + 0.018060 \times \text{Days} - 0.01188 \times \text{Tons}
+$$
+
+```{r Question 13}
+library(readxl)
+library(dplyr)
+#Read data
+data <- read_excel('ElectricityCost.xlsx')
+# Part a Estimate the linear model
+linear_model <- lm(Cost ~ Temp + Days + Tons, data = data)
+summary(linear_model)
+# Part b Estimate the exponential model
+data <- data %>% mutate(lnCost = log(Cost))
+exponential_model <- lm(lnCost ~ Temp + Days + Tons, data = data)
+summary(exponential_model)
+# Part c Compare R-squared values to determine the better fitting model
+r_squared_linear <- summary(linear_model)$r.squared
+r_squared_exponential <- summary(exponential_model)$r.squared
+cat("
+Part c) Interpretation:
+
+- **Linear Model**: The R-squared value of 0.6659 indicates that approximately 66.59% of the variability in monthly electricity cost is explained by the model.
+- **Exponential Model**: The R-squared value of 0.6818 suggests that about 68.18% of the variability in the natural log of the monthly electricity cost is explained by the model.
+
+Given the slightly higher R-squared value of the exponential model, it provides a marginally better fit to the data than the linear model. However, the difference is not substantial, and other factors like residual analysis should also be considered for model selection.
+")
+
+```
+
+<font size="5">Question 14</font>
+
+Question 14 (20 points)
+The dataset on the file GreekEconomy provides data for the manufacturing sector of Greek economy for the period 1961-1987.
+a) See if the Cobb-Douglas production function fits the data given and interpret the results. What general conclusions can you draw?
+b) Now consider the following model:
+Output/labor = A(K/L)βeu
+where the regressand represents labor productivity and the regressor represents the capital labor ratio.
+Estimate the paramaters of this model and interpret your results.
+
+#### Part a) Cobb-Douglas Production Function Model
+
+$$
+\ln(\text{Output}) = \beta_0 + \beta_1 \ln(\text{Labor}) + \beta_2 \ln(\text{Capital}) + \epsilon
+$$
+
+#### Estimated Equation
+
+$$
+\hat{\ln(\text{Output})} = -11.9366 + 2.3284 \ln(\text{Labor}) + 0.1398 \ln(\text{Capital})
+$$
+
+
+
+#### Part b) Labor Productivity Model
+
+$$
+\ln\left(\frac{Output}{Labor}\right) = \beta_0 + \beta_1 \ln\left(\frac{Capital}{Labor}\right) + \epsilon
+$$
+
+#### Estimated Equation
+
+$$
+\hat{\ln\left(\frac{Output}{Labor}\right)} = -1.15596 + 0.68076 \ln\left(\frac{Capital}{Labor}\right)
+$$
+
+
+
+```{r Question 14}
+library(readxl)
+# Read the data
+greek_economy_data <- read_excel("GreekEconomy.xlsx", range ="A5:E32")
+# Renaming columns for convenience
+colnames(greek_economy_data) <- c('Year', 'Output', 'Capital', 'Labor', 'CapitalLaborRatio')
+
+# Part a)
+# Transforming data
+ln_output <- log(greek_economy_data$Output)
+ln_labor <- log(greek_economy_data$Labor)
+ln_capital <- log(greek_economy_data$Capital)
+# Fitting the Cobb-Douglas model
+cobb_douglas_model <- lm(ln_output ~ ln_labor + ln_capital)
+# Summary of the model
+summary(cobb_douglas_model)
+cat("
+### Part a) Detailed Interpretation of the Cobb-Douglas Production Function
+
+- The estimated intercept of -11.9366 suggests that, when labor and capital are at their reference levels, the total output is significantly different from zero, after exponentiating this value, we can interpret it as the total factor productivity.
+- The coefficient for ln(Labor) of 2.3284 is statistically significant and indicates a strong positive elasticity of output with respect to labor. This means that a 1% increase in labor input is associated with an approximate 2.3284% increase in output, holding capital constant.
+- The coefficient for ln(Capital) of 0.1398, while positive, is not statistically significant, suggesting that the contribution of capital to output, while positive, is not reliably estimated in this dataset.
+- The R-squared value of 0.9714 implies that the model explains a very high proportion, 97.14%, of the variability in output, indicating a strong fit to the data.
+")
+
+# Part b)
+# Transforming data
+ln_output_labor <- log(greek_economy_data$Output / greek_economy_data$Labor)
+ln_capital_labor_ratio <- log(greek_economy_data$CapitalLaborRatio)
+# Fitting the labor productivity model
+labor_productivity_model <- lm(ln_output_labor ~ ln_capital_labor_ratio)
+# Summary of the model
+summary(labor_productivity_model)
+cat("
+### Part b) Detailed Interpretation of the Labor Productivity Model
+
+- The model suggests that the capital-labor ratio is a significant predictor of labor productivity, as indicated by the significant coefficient of 0.68076 for ln(Capital/Labor ratio). 
+- The intercept of -1.15596, when exponentiated, gives an estimate of the 'A' parameter in the production function, which can be associated with the efficiency or technology level in the production process when the capital-labor ratio is one.
+- The coefficient implies that a 1% increase in the capital-labor ratio is expected to increase labor productivity by approximately 0.68076%.
+- An adjusted R-squared of 0.8995 indicates that the model accounts for approximately 89.95% of the variance in labor productivity, which is quite high and denotes a strong explanatory power.
+")
+pred1 <- predict(cobb_douglas_model)   ### Fitted Values
+R_S_1 <- cor(greek_economy_data$Output, pred1)^2 ### Find the R-square
+Adj_R_S_1 <- 1 - ((1 - R_S_1))*(27 - 1)/(27 - 2 - 1)
+
+pred2 <- predict(labor_productivity_model)   ### Fitted Values
+exp(pred2)*greek_economy_data$Labor 
+R_S_2 <- cor(greek_economy_data$Output, exp(pred2)*greek_economy_data$Labor)^2 ### Find the R-square
+Adj_R_S_2 <- 1 - ((1 - R_S_2))*(27 - 1)/(27 - 1 - 1) 
+```

@@ -1,0 +1,108 @@
+---
+title: "HW3 BAX441-01"
+author: "Ian Chen"
+date: "2023-10-23"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+install.packages('Hmisc')
+install.packages("readxl")
+```
+<font size="5">Question 1</font>
+
+Profitability remains a challenge for banks and thrifts with less than $2 billion of assets. The business problem facing a bank analyst relates to the factors that affect return on average assets (ROAA), an indicator of how profitable a company is relative to its total assets. Data collected on a sample of 199 community banks and stored on the CSV file Community Banks include the ROAA (%), the efficiency ratio (%) as a measure of bank productivity, and total risk-based capital (%) as a measure of capital adequacy.
+a) State the multiple regression model.
+b) Using the data, create the estimated multiple regression model.
+c) Determine whether there is a significant relationship between ROAA and the two independent variables (efficiency ratio and total risk-based capital) at the 0.05 level of significance. In other words, run the Global F-test and comment on the overall model validity.
+d) At the 0.05 level of significance, determine whether each independent variable makes a significant contribution to the regression model. On the basis of these results, indicate the independent variables to include in this model.
+e) Interpret the partial slope coefficients.
+f) Compute the coefficient of multiple determination, R2 and interpret its value.
+g) What is the value of adjusted R2?
+h) Construct a 95% interval estimate for the mean ROAA when the efficiency ratio is 60% and the total
+risk-based capital is 15%.
+i) Construct a 95% interval for the ROAA for a particular community bank when the efficiency ratio is 60% and the total risk-based capital is 15%.
+
+
+$$Multiple\  regression\ model \ for\ part\ a:\\ROAA=\beta_{0}+\beta_{1}Efficiency\ ratio+\beta_{2}Total\ risk\ based\ capital\ ratio+\mu$$
+$$Estimated\  multiple\ regression\ model \ for\ part\ b:\\\widehat{ROAA}=1.395984-0.01173Efficiency\ ratio+0.028612Total\ risk\ based\ capital\ ratio$$
+$$Global\ Ftest\ for\ part\ c:\\H_{0}:\beta_{1}=\beta_{2}=0\\H_{1}:Atleast\ one\ \beta_{i}\ is\ not\ equal\ to\ zero$$
+$$Individual\ ttest\ for\ part\ d:\\H_{0}:\beta_{1}\ge0\\H_{1}:\beta_{1}<0$$
+$$Individual\ ttest\ for\ part\ d:\\H_{0}:\beta_{2}\le0\\H_{1}:\beta_{2}>0$$
+
+
+
+
+```{r Question 1}
+#Read data
+df <- read.csv("CommunityBanks.csv")
+sprintf("Part a: The multiple regression model is stated above")
+#check dataframe
+str(df)
+names(df)
+sum(is.na(df))
+#Plot scatter plot matrix
+plot(df[,3:5])
+#No clear bending patterns. Next, check the correlations.
+Hmisc::rcorr(as.matrix(df[,3:5]))
+#Observations from the Correlation Matrix:
+#1. ROAA and Efficiency Ratio
+#Correlation is moderately negative and it is statistically significant.
+
+#2. ROAA and Total riskbased capital ratio
+#Correlation is moderately positive and it is statistically significant.
+#Develop the multiple regression model.
+ROAAModel <- lm(ROAA.... ~ Efficiency.Ratio....+Total.Risk.Based.Capital.Ratio...., data = df)
+anova(ROAAModel)
+summary(ROAAModel)
+sprintf("Part b: Using the coefficient estimates, we can write the estimated equation as shown above.")
+#Global Ftest interpretation
+sprintf("Part c: The F-statistic for the Global F-test is 37.84, and the p-value is 1.273e-14, which is statistically significant, we have enough evidence to reject the null and conclude that the overall model is valid. We infer that the Efficiency Ratio and the Total riskbased capital ratio are jointly significant in explaining the variation in ROAA.")
+sprintf("Part d: The p-values for the individual ttest of the variables are 1.27e-7 and 1.56e-7 for efficiency ratio and total risk-based capital ratio respectively, they are smaller than any reasonable signigicace level and hence we conclude that both the variables make significant contribution to the regression model so we should include both in the model")
+sprintf("Part e: For every 1%% increase in Efficiency ratio, the estimated ROAA%% decreases by -0.01173%%, assuming other independent variables stay constant.
+        For every 1%% increase in total risk-based capital ratio, the estimated ROAA%% increases by 0.028612%%, assuming other independent variables stay constant")
+sprintf("Part f: The R-squared value is 0.2785, 27.85%% of variation in ROAA is explained by the model, 72.15%% is unexplained")
+sprintf("Part g: The Adjusted R-squared value is 0.2712")
+#Constructing the intervals for part h and i
+predict(ROAAModel, data.frame(Efficiency.Ratio.... = 60, Total.Risk.Based.Capital.Ratio.... = 15), interval = "confidence", level = 0.95)
+sprintf("Part h: 95%% CI for ROAA =(1.079832,1.162896), we are 95%% confident that the true mean ROAA when Efficiency ratio is 60%% and total risk-based capital ratio is 15%% is between 107.9832%% and 116.2896%%.")
+predict(ROAAModel, data.frame(Efficiency.Ratio.... = 60, Total.Risk.Based.Capital.Ratio.... = 15), interval = "prediction", level = 0.95)
+sprintf("Part i: 95%% PI for ROAA =(0.5678616,1.674866), we are 95%% confident that the ROAA for a particular community bank when Efficiency ratio is 60%% and total risk-based capital ratio is 15%% is between 56.78616%% and 167.4866%%.")
+```
+<font size="5">Question 2</font>
+
+Question 2 (40 points)
+Medical Company sells medical supplies to hospitals, clinics, and doctors’ offices. The company currently mar- kets in three regions of the United States: the South, the West, and the Midwest. These regions are divided into many smaller territories. Data are given on the CSV file MedicalCo.
+Medical Company’s management is concerned about the effectiveness of a new bonus program. The program is overseen by regional sales managers and provides bonuses to salespeople based on performance. Management wants to know if the bonuses paid were related to sales. In determining whether this relationship exists, they also want to take into account the effects of advertising. The variables used in the study include:
+Y = Company’s sales (in thousands of dollars) in each territory (SALES)
+X1 = the amount that Company spent on advertising in each territory (in hundreds of dollars) (ADV) X2 = the total amount of bonuses paid in each territory (BONUS)
+Data for a random sample of 25 of the Company’s sales territories are given on the CSV file. Management believes that, in addition to advertising and bonus, two other explanatory variables may be important in ex- plaining the variation in sales. These variables are:
+X3 = market share currently held by the Company in each territory (MKTSHR) X4 = largest competitor’s sales in each territory (COMPET)
+Determine at 5% significance level if the variables X3 and X4 jointly have a statistically significant influence on Y . What proportion of variation in Sales (Y ) is explained by these two variables that is not explained by X1 and X2 alone?
+
+$$Multiple\  regression\ Full\ model \:\\Y(SALES)=\beta_{0}+\beta_{1}X_{1}(ADV)+\beta_{2}X_{2}(BONUS)+\beta_{3}X_{3}(MKTSHR)+\beta_{4}X_{4}(COMPET)+\mu$$
+$$Multiple\  regression\ Reduced\ model \:\\Y(SALES)=\beta_{0}+\beta_{1}X_{1}(ADV)+\beta_{2}X_{2}(BONUS)+\mu$$
+$$Partial\ Ftest\ for\ the\ full\ model\ vs\ reduced\ model:\\H_{0}:\beta_{3}=\beta_{4}=0\\H_{1}:Atleast\ one\ \beta_{i}\ is\ not\ equal\ to\ zero\\or\\H_{0}:The\ reduced\ model\ and\ the\ full\ model\ do\ not\ differ\ significantly,\ so\ choose\ the\ reduced\ model.\\H_{1}:The\ full\ model\ is\ significantly\ better.$$
+
+
+
+```{r Question 2}
+#Read data
+df <- read.csv("MedicalCo.csv")
+#Check the dataframe
+str(df)
+sum(is.na(df))
+names(df)
+#Develop the full model
+fullmodel <- lm( SALES~ ., data = df)
+#Develop the reduced model
+reducedmodel <- lm( SALES~ ADV+BONUS, data = df)
+#Run anova to conduct the partial Ftest
+anova(reducedmodel, fullmodel)
+#Calculate partial R-squared
+partial_r_sq <- (181176 - 175855)/181176
+partial_r_sq
+sprintf("The p-value from the ANOVA output of the partal Ftest suggest that we do not have significant evidence to reject the null hypothesis that variables MKTSHR and COMPET has no affect on Y, hence we conclude that X3 and X4 jointly does not have a statistically significant influence on Y, and choose the reduced model. The partial R-squared calculated above indicates that MKTSHR and COMPET variables explain 2.936923%% of the variation in SALES that cannot be explained by ADV and BONUS alone.")
+```
+
