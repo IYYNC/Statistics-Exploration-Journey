@@ -1,0 +1,143 @@
+---
+title: "BAX442 Assignment2 TeamC"
+author: "Colin Chen, Ian Chen, Jihyun Kim, Yuna Kim, Amber Sillis"
+date: "2024-01-27"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+# Residual Bootstrap  
+The fundamental idea of **Residual Bootstrap** is to keep the predictors of the model unchanged while resampling the residuals to generate new dependent variable values, thereby creating new datasets. The steps involved are as follows:  
+
+1. Fit the Original Model
+2. Resample Residuals
+3. Generate New Response Variables
+4. Refit the Model
+
+The Residual Bootstrap method allows us to assess the variability and robustness of model parameter estimates and construct confidence intervals for the parameters.  
+
+# Data Bootstrap  
+**Data Bootstrap** is a more general bootstrap resampling technique that does not rely on a specific model form. It involves directly resampling observations (including both predictors and response variables) from the original dataset, making it applicable to a wide range of statistical analysis scenarios. The steps involved are as follows:  
+
+1. Resample Observations
+2. Repeat Analysis
+3. Evaluate Parameter Distribution 
+
+The advantage of the Data Bootstrap method lies in its flexibility and generality, as it does not depend on model assumptions and can be used for estimating and inferring a wide range of statistical quantities.
+
+# Results Table
+```{r echo=FALSE, results = "asis", message=FALSE, warning=FALSE}
+library(dplyr)
+library(readxl)
+library(boot)
+library(knitr)
+library(kableExtra)
+
+ian <- c(16,21,4,22,24,15,7,9,3,14,23,10,13,17,2,19,20,12,5,8,1,11,18,6)
+
+yuna <- c(12,4,8,23,24,16,11,3,7,21,22,15,10,2,6,19,20,14,9,1,5,17,18,13)
+
+amber <- c(11,23,2,16,24,8,10,19,1,15,22,7,9,18,4,14,21,6,12,17,3,13,20,5)
+  
+jihyun <- c(11,12,4,22,24,16,9,10,3,21,23,15,7,8,2,19,20,14,5,6,1,17,18,13)
+  
+colin <- c(12,17,2,18,24,10,11,19,1,21,23,8,6,16,4,22,20,8,5,15,3,20,19,7)
+
+name_list <- list('Ian:' = ian, 'Yuna:' = yuna, 'Amber:' = amber, 'Jihyun:' = jihyun, 'Colin:' = colin)
+
+designmatrix <- read_xlsx("Design Matrix.xlsx")
+designmatrix <- data.frame(designmatrix[1:5])
+
+colnames(designmatrix) <- c("Screen75inch", "Screen85inch", "Resolution4K", "Sony", "Price")
+price_savings <- 500
+
+# Residual Bootstrap for WTP
+residual_bootstrap <- function(preferences, indices) {
+  matrix <- cbind(preferences, designmatrix)
+  model <- lm(preferences ~ ., data = matrix)
+  partworth_with_price <- model$coefficients
+
+  fitted <- predict(model)  # Get fitted values from the original model
+  residuals <- residuals(model)  # Extract residuals
+  resampled_residuals <- sample(residuals, length(residuals), replace = TRUE)  # Resample residuals
+  new_response <- fitted + resampled_residuals  # New response variable
+  new_model <- lm(new_response ~ Screen75inch + Screen85inch + Resolution4K + Sony + Price, data=designmatrix)  # Refit model
+  
+  # Calculate WTPs
+  wtp_screen75 <- -coef(new_model)["Screen75inch"] / coef(new_model)["Price"]
+  wtp_screen85 <- -coef(new_model)["Screen85inch"] / coef(new_model)["Price"]
+  wtp_resolution4K <- -coef(new_model)["Resolution4K"] / coef(new_model)["Price"]
+  wtp_sony <- -coef(new_model)["Sony"] / coef(new_model)["Price"]
+  
+  return(c(wtp_screen75, wtp_screen85, wtp_resolution4K, wtp_sony))
+}
+
+# Data Bootstrap for WTP
+data_bootstrap <- function(preferences, indices) {
+  matrix <- cbind(preferences, designmatrix)
+  boot_data <- matrix[indices, ]  # 'indices' are provided automatically by the 'boot' function
+  boot_model <- lm(preferences ~ ., data = boot_data)
+  return(coef(boot_model))
+}
+
+
+set.seed(123)  # For reproducibility
+for (i in 1:5) {
+  #### Residual Bootstrap
+  print(names(name_list)[i])
+  # Perform Residual Bootstrap
+  boot_results <- boot(name_list[[i]], residual_bootstrap, R = 1000)
+  # Calculate Confidence Intervals
+  wtp_ci <- apply(boot_results$t, 2, function(x) quantile(x, c(0.025, 0.975)))
+  wtp_mean <- apply(boot_results$t, 2, function(x) mean(x))
+  wtp_ci <- rbind(wtp_ci, wtp_mean)
+  colnames(wtp_ci) = c("Screen75inch", "Screen85inch", "Resolution4K", "Sony")
+  
+  # Print CI for each attribute
+  # print("95% CI for willingness to pay (Residual Bootstrap Regression)")
+  matrix1 <- t(as.matrix(price_savings*wtp_ci))
+  matrix1 <- round(matrix1,2)
+  #print(kable(matrix1))
+  
+  #### Data Bootstrap
+  boot_results <- boot(name_list[[i]], data_bootstrap, R=1000)
+  
+  # Calculating the 95% confidence interval for each coefficient
+  boot_ci <- apply(boot_results$t, 2, function(x) quantile(x, c(0.025, 0.975), na.rm = TRUE))
+  
+  # Printing the confidence intervals
+  # Example calculation for WTP for the 'Screen85inch' attribute
+  colnames(boot_ci) = c("Intercept", "Screen75inch", "Screen85inch", "Resolution4K", "Sony", "Price")
+  colnames(boot_results$t) = c("Intercept", "Screen75inch", "Screen85inch", "Resolution4K", "Sony", "Price")
+  
+  wtp_boot_screen75 <- -boot_results$t[, "Screen75inch"] / boot_results$t[, "Price"]
+  wtp_boot_screen85 <- -boot_results$t[, "Screen85inch"] / boot_results$t[, "Price"]
+  wtp_boot_resolution4K <- -boot_results$t[, "Resolution4K"] / boot_results$t[, "Price"]
+  wtp_bootwtp_sony <- -boot_results$t[, "Sony"] / boot_results$t[, "Price"]
+  
+  # Calculating the 95% confidence interval for WTP
+  wtp_screen75 <- quantile(wtp_boot_screen75, c(0.025, 0.975), na.rm = TRUE)
+  wtp_screen85 <- quantile(wtp_boot_screen85, c(0.025, 0.975), na.rm = TRUE)
+  wtp_resolution4K <- quantile(wtp_boot_resolution4K, c(0.025, 0.975), na.rm = TRUE)
+  wtp_sony <- quantile(wtp_bootwtp_sony, c(0.025, 0.975), na.rm = TRUE)
+  wtp_mean <- c(mean(wtp_screen75), mean(wtp_screen85), mean(wtp_resolution4K), mean(wtp_sony))
+  
+  # Printing the WTP confidence interval
+  wtp_ci <- cbind(wtp_screen75, wtp_screen85, wtp_resolution4K, wtp_sony)
+  wtp_ci <- rbind(wtp_ci, wtp_mean)
+  colnames(wtp_ci) = c("Screen75inch", "Screen85inch", "Resolution4K", "Sony")
+  #print("95% CI for willingness to pay (Data Bootstrap Regression)")
+  matrix2 <- t(as.matrix(round(price_savings*wtp_ci,2)))
+  #print(kable(data.frame(matrix2)))
+  
+  matrix_final <- cbind(matrix1, matrix2)
+  colnames(matrix_final) <- c("Lower", "Upper", "Mean", "Lower", "Upper", "Mean")
+  matrix_final <- data.frame(matrix_final)
+  # kbl(matrix_final) %>% kable_styling(bootstrap_options = c("striped", "hover")) %>% add_header_above(c(" " = 1, "Residual Bootstrap" = 3, "Data Bootstrap" = 3)) %>% print()
+  kbl(matrix_final) %>% add_header_above(c(" " = 1, "Residual Bootstrap" = 3, "Data Bootstrap" = 3)) %>% print()
+}
+
+
+
+```
